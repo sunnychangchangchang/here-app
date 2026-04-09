@@ -4,8 +4,9 @@ import AuthPage from './pages/AuthPage'
 import HomePage from './pages/HomePage'
 import PlazaPage from './pages/PlazaPage'
 import ProfilePage from './pages/ProfilePage'
+import SearchPage from './pages/SearchPage'
 
-type Tab = 'home' | 'plaza' | 'profile'
+type Tab = 'home' | 'plaza' | 'search' | 'profile'
 
 function AppContent() {
   const { isLoggedIn, isLoading } = useApp()
@@ -31,6 +32,7 @@ function AppContent() {
           <h1 className="text-xl font-bold text-gray-900">
             {activeTab === 'home' && 'Here'}
             {activeTab === 'plaza' && '廣場'}
+            {activeTab === 'search' && '搜尋'}
             {activeTab === 'profile' && '我的'}
           </h1>
         </div>
@@ -40,6 +42,7 @@ function AppContent() {
       <div className="pb-20">
         {activeTab === 'home' && <HomePage />}
         {activeTab === 'plaza' && <PlazaPage />}
+        {activeTab === 'search' && <SearchPage />}
         {activeTab === 'profile' && <ProfilePage />}
       </div>
 
@@ -48,7 +51,7 @@ function AppContent() {
         <div className="max-w-lg mx-auto px-4 py-2 flex justify-around">
           <button
             onClick={() => setActiveTab('home')}
-            className={`flex flex-col items-center gap-1 px-6 py-2 rounded-xl transition-all ${
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all ${
               activeTab === 'home' ? 'text-gray-900' : 'text-gray-400'
             }`}
           >
@@ -57,7 +60,7 @@ function AppContent() {
           </button>
           <button
             onClick={() => setActiveTab('plaza')}
-            className={`flex flex-col items-center gap-1 px-6 py-2 rounded-xl transition-all ${
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all ${
               activeTab === 'plaza' ? 'text-gray-900' : 'text-gray-400'
             }`}
           >
@@ -65,8 +68,17 @@ function AppContent() {
             <span className="text-xs font-medium">廣場</span>
           </button>
           <button
+            onClick={() => setActiveTab('search')}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all ${
+              activeTab === 'search' ? 'text-gray-900' : 'text-gray-400'
+            }`}
+          >
+            <span className="text-xl">🔍</span>
+            <span className="text-xs font-medium">搜尋</span>
+          </button>
+          <button
             onClick={() => setActiveTab('profile')}
-            className={`flex flex-col items-center gap-1 px-6 py-2 rounded-xl transition-all ${
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all ${
               activeTab === 'profile' ? 'text-gray-900' : 'text-gray-400'
             }`}
           >

@@ -9,6 +9,8 @@ export default function HomePage() {
   const [newPost, setNewPost] = useState('')
   const [waitingForReply, setWaitingForReply] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [tagInput, setTagInput] = useState('')
+  const [tags, setTags] = useState<string[]>([])
   const [expandedPost, setExpandedPost] = useState<string | null>(null)
   const [comments, setComments] = useState<Record<string, Comment[]>>({})
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
@@ -47,7 +49,6 @@ export default function HomePage() {
       .limit(50)
     if (data) {
       setPosts(data)
-      // 一次抓所有文章的留言數
       data.forEach(post => fetchCommentCount(post.id))
     }
   }
@@ -78,16 +79,34 @@ export default function HomePage() {
     }
   }
 
+  const handleTagInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      const tag = tagInput.trim().replace(/^#/, '')
+      if (tag && !tags.includes(tag) && tags.length < 5) {
+        setTags(prev => [...prev, tag])
+      }
+      setTagInput('')
+    }
+  }
+
+  const removeTag = (tag: string) => {
+    setTags(prev => prev.filter(t => t !== tag))
+  }
+
   const submitPost = async () => {
     if (!newPost.trim() || !profile) return
     setLoading(true)
     await supabase.from('posts').insert({
       user_id: profile.id,
       content: newPost.trim(),
-      waiting_for_reply: waitingForReply
+      waiting_for_reply: waitingForReply,
+      tags
     })
     setNewPost('')
     setWaitingForReply(false)
+    setTags([])
+    setTagInput('')
     setLoading(false)
   }
 
@@ -121,6 +140,32 @@ export default function HomePage() {
           className="w-full text-sm text-gray-800 placeholder-gray-400 resize-none focus:outline-none"
           rows={3}
         />
+
+        {/* Hashtag 輸入 */}
+        <div className="mt-2">
+          <div className="flex flex-wrap gap-1 mb-1">
+            {tags.map(tag => (
+              <span
+                key={tag}
+                className="flex items-center gap-1 text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full"
+              >
+                #{tag}
+                <button onClick={() => removeTag(tag)} className="text-blue-400 hover:text-blue-600">×</button>
+              </span>
+            ))}
+          </div>
+          {tags.length < 5 && (
+            <input
+              type="text"
+              value={tagInput}
+              onChange={e => setTagInput(e.target.value)}
+              onKeyDown={handleTagInput}
+              placeholder="加標籤，按 Enter 確認（最多5個）"
+              className="w-full text-xs text-gray-500 placeholder-gray-300 focus:outline-none"
+            />
+          )}
+        </div>
+
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
           <button
             onClick={() => setWaitingForReply(!waitingForReply)}
@@ -168,7 +213,18 @@ export default function HomePage() {
               </div>
             </div>
 
-            <p className="text-sm text-gray-800 leading-relaxed mb-3">{post.content}</p>
+            <p className="text-sm text-gray-800 leading-relaxed mb-2">{post.content}</p>
+
+            {/* 顯示 hashtag */}
+            {post.tags && post.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-3">
+                {post.tags.map(tag => (
+                  <span key={tag} className="text-xs text-blue-500 hover:text-blue-700 cursor-pointer">
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            )}
 
             <button
               onClick={() => toggleComments(post.id)}

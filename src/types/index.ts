@@ -12,6 +12,7 @@ export interface Post {
   user_id: string
   content: string
   waiting_for_reply: boolean
+  tags: string[]
   created_at: string
   profiles?: Profile
 }
