@@ -11,21 +11,32 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false)
   const [expandedPost, setExpandedPost] = useState<string | null>(null)
   const [comments, setComments] = useState<Record<string, Comment[]>>({})
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
   const [newComment, setNewComment] = useState<Record<string, string>>({})
 
   useEffect(() => {
     fetchPosts()
 
-    const channel = supabase
-      .channel('posts')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'posts'
-      }, () => fetchPosts())
+    const postChannel = supabase
+      .channel('posts-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => fetchPosts())
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    const commentChannel = supabase
+      .channel('comments-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, (payload: any) => {
+        const postId = payload.new?.post_id || payload.old?.post_id
+        if (postId) {
+          fetchComments(postId)
+          fetchCommentCount(postId)
+        }
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(postChannel)
+      supabase.removeChannel(commentChannel)
+    }
   }, [])
 
   const fetchPosts = async () => {
@@ -34,7 +45,19 @@ export default function HomePage() {
       .select('*, profiles(username, language, is_available)')
       .order('created_at', { ascending: false })
       .limit(50)
-    if (data) setPosts(data)
+    if (data) {
+      setPosts(data)
+      // 一次抓所有文章的留言數
+      data.forEach(post => fetchCommentCount(post.id))
+    }
+  }
+
+  const fetchCommentCount = async (postId: string) => {
+    const { count } = await supabase
+      .from('comments')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', postId)
+    setCommentCounts(prev => ({ ...prev, [postId]: count || 0 }))
   }
 
   const fetchComments = async (postId: string) => {
@@ -65,21 +88,18 @@ export default function HomePage() {
     })
     setNewPost('')
     setWaitingForReply(false)
-    fetchPosts()
     setLoading(false)
   }
 
   const submitComment = async (postId: string) => {
     const content = newComment[postId]?.trim()
     if (!content || !profile) return
-
     await supabase.from('comments').insert({
       post_id: postId,
       user_id: profile.id,
       content
     })
     setNewComment(prev => ({ ...prev, [postId]: '' }))
-    fetchComments(postId)
   }
 
   const formatTime = (dateStr: string) => {
@@ -130,16 +150,13 @@ export default function HomePage() {
         )}
         {posts.map(post => (
           <div key={post.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            {/* 文章頭部 */}
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium text-gray-600">
                 {post.profiles?.username?.[0]?.toUpperCase()}
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-900">
-                    {post.profiles?.username}
-                  </span>
+                  <span className="text-sm font-medium text-gray-900">{post.profiles?.username}</span>
                   {post.profiles?.is_available && (
                     <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">有空</span>
                   )}
@@ -151,21 +168,17 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* 文章內容 */}
             <p className="text-sm text-gray-800 leading-relaxed mb-3">{post.content}</p>
 
-            {/* 留言按鈕 */}
             <button
               onClick={() => toggleComments(post.id)}
               className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
             >
-              💬 留言 {comments[post.id] ? `· ${comments[post.id].length}` : ''}
+              💬 留言 {commentCounts[post.id] ? `· ${commentCounts[post.id]}` : ''}
             </button>
 
-            {/* 留言區 */}
             {expandedPost === post.id && (
               <div className="mt-3 pt-3 border-t border-gray-50">
-                {/* 留言列表 */}
                 <div className="space-y-2 mb-3">
                   {(comments[post.id] || []).length === 0 && (
                     <p className="text-xs text-gray-400">還沒有留言</p>
@@ -176,16 +189,12 @@ export default function HomePage() {
                         {comment.profiles?.username?.[0]?.toUpperCase()}
                       </div>
                       <div className="bg-gray-50 rounded-xl px-3 py-2 flex-1">
-                        <span className="text-xs font-medium text-gray-700">
-                          {comment.profiles?.username}
-                        </span>
+                        <span className="text-xs font-medium text-gray-700">{comment.profiles?.username}</span>
                         <p className="text-xs text-gray-600 mt-0.5">{comment.content}</p>
                       </div>
                     </div>
                   ))}
                 </div>
-
-                {/* 輸入留言 */}
                 <div className="flex gap-2">
                   <input
                     type="text"
