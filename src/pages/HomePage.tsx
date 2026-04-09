@@ -121,6 +121,11 @@ export default function HomePage() {
     setNewComment(prev => ({ ...prev, [postId]: '' }))
   }
 
+  const deletePost = async (postId: string) => {
+  if (!confirm('確定要刪除這篇文章嗎？')) return
+  await supabase.from('posts').delete().eq('id', postId)
+}
+
   const formatTime = (dateStr: string) => {
     const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
     if (diff < 60) return '剛剛'
@@ -195,22 +200,33 @@ export default function HomePage() {
         )}
         {posts.map(post => (
           <div key={post.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium text-gray-600">
-                {post.profiles?.username?.[0]?.toUpperCase()}
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-900">{post.profiles?.username}</span>
-                  {post.profiles?.is_available && (
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">有空</span>
-                  )}
-                  {post.waiting_for_reply && (
-                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">在線等</span>
-                  )}
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium text-gray-600">
+                  {post.profiles?.username?.[0]?.toUpperCase()}
                 </div>
-                <span className="text-xs text-gray-400">{formatTime(post.created_at)}</span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-900">{post.profiles?.username}</span>
+                    {post.profiles?.is_available && (
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">有空</span>
+                    )}
+                    {post.waiting_for_reply && (
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">在線等</span>
+                    )}
+                  </div>
+                  <span className="text-xs text-gray-400">{formatTime(post.created_at)}</span>
+                </div>
               </div>
+              {/* 只有自己的文章才能刪除 */}
+              {post.user_id === profile?.id && (
+                <button
+                  onClick={() => deletePost(post.id)}
+                  className="text-xs text-gray-300 hover:text-red-400 transition-colors"
+                >
+                  刪除
+                </button>
+              )}
             </div>
 
             <p className="text-sm text-gray-800 leading-relaxed mb-2">{post.content}</p>
