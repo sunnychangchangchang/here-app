@@ -14,19 +14,18 @@ const LANGUAGES = [
 ]
 
 export default function PlazaPage() {
-  const { profile, setProfile } = useApp()
+  const { profile } = useApp()
   const [availableUsers, setAvailableUsers] = useState<Profile[]>([])
-
-  // 直接從 profile context 讀狀態，不用獨立 local state
-  const isAvailable = profile?.is_available ?? false
+  const [isAvailable, setIsAvailable] = useState(false)
 
   useEffect(() => {
+    if (profile) setIsAvailable(profile.is_available)
     fetchAvailableUsers()
 
     const channel = supabase
-      .channel('availability')
+      .channel('availability-changes')
       .on('postgres_changes', {
-        event: 'UPDATE',
+        event: '*',
         schema: 'public',
         table: 'profiles'
       }, () => {
@@ -50,22 +49,12 @@ export default function PlazaPage() {
   const toggleAvailability = async () => {
     if (!profile) return
     const newStatus = !isAvailable
+    setIsAvailable(newStatus)
 
-    // 先更新 context，讓 UI 即時反應
-    setProfile({ ...profile, is_available: newStatus })
-
-    // 再更新資料庫
-    const { error } = await supabase
+    await supabase
       .from('profiles')
       .update({ is_available: newStatus })
       .eq('id', profile.id)
-
-    // 如果資料庫更新失敗，回滾
-    if (error) {
-      setProfile({ ...profile, is_available: !newStatus })
-    } else {
-      fetchAvailableUsers()
-    }
   }
 
   const getLanguageLabel = (code: string) => {
@@ -77,7 +66,7 @@ export default function PlazaPage() {
     <div className="max-w-lg mx-auto px-4 py-6">
       {/* 我的狀態 */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
-        <p className="text-xs text-gray-400 mb-4 text-center">你現在有空嗎？</p>
+        <p className="text-sm text-gray-500 mb-3 text-center">你現在有空嗎？</p>
         <div
           onClick={toggleAvailability}
           className="flex items-center justify-between cursor-pointer"
