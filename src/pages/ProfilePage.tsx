@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useApp } from '../context/AppContext'
+import { StatusIcon } from '../components/icons'
 
 const LANGUAGES = [
   { code: 'zh-TW', label: '繁體中文', flag: '🇹🇼' },
@@ -72,8 +73,9 @@ export default function ProfilePage() {
         <h2 className="text-lg font-bold text-gray-900">{profile?.username}</h2>
         <span className={`mt-1.5 text-xs px-3 py-1 rounded-full font-medium ${
           profile?.is_available ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-        }`}>
-          {profile?.is_available ? '🟢 現在有空' : '⚪ 目前在忙'}
+        } inline-flex items-center gap-1.5`}>
+          <StatusIcon active={!!profile?.is_available} className="w-3.5 h-3.5" />
+          {profile?.is_available ? '現在有空' : '目前在忙'}
         </span>
         <div className="flex gap-8 mt-4">
           <div className="text-center">

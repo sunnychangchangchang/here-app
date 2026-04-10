@@ -10,6 +10,7 @@ import UserProfilePage from './pages/UserProfilePage'
 import ConversationListPage from './pages/ConversationListPage'
 import ChatPage from './pages/ChatPage'
 import { supabase } from './supabase'
+import { BellIcon, HomeIcon, MessageIcon, PlazaIcon, UserIcon } from './components/icons'
 
 type Tab = 'home' | 'plaza' | 'messages' | 'notifications' | 'profile'
 
@@ -210,21 +211,21 @@ function AppContent() {
             onClick={() => handleTabChange('home')}
             className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${activeTab === 'home' && isOnTabs ? 'text-gray-900' : 'text-gray-400'}`}
           >
-            <span className="text-xl">🏠</span>
+            <HomeIcon className="w-5 h-5" />
             <span className="text-xs font-medium">首頁</span>
           </button>
           <button
             onClick={() => handleTabChange('plaza')}
             className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${activeTab === 'plaza' && isOnTabs ? 'text-gray-900' : 'text-gray-400'}`}
           >
-            <span className="text-xl">🟢</span>
+            <PlazaIcon className="w-5 h-5" />
             <span className="text-xs font-medium">廣場</span>
           </button>
           <button
             onClick={() => handleTabChange('messages')}
             className={`relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${activeTab === 'messages' && isOnTabs ? 'text-gray-900' : 'text-gray-400'}`}
           >
-            <span className="text-xl">💬</span>
+            <MessageIcon className="w-5 h-5" />
             {unreadDmCount > 0 && (
               <span className="absolute top-1 right-2 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
                 {unreadDmCount > 9 ? '9+' : unreadDmCount}
@@ -236,7 +237,7 @@ function AppContent() {
             onClick={() => handleTabChange('notifications')}
             className={`relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${activeTab === 'notifications' && isOnTabs ? 'text-gray-900' : 'text-gray-400'}`}
           >
-            <span className="text-xl">🔔</span>
+            <BellIcon className="w-5 h-5" />
             {unreadCount > 0 && (
               <span className="absolute top-1 right-2 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
                 {unreadCount > 9 ? '9+' : unreadCount}
@@ -248,7 +249,7 @@ function AppContent() {
             onClick={() => handleTabChange('profile')}
             className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${activeTab === 'profile' && isOnTabs ? 'text-gray-900' : 'text-gray-400'}`}
           >
-            <span className="text-xl">👤</span>
+            <UserIcon className="w-5 h-5" />
             <span className="text-xs font-medium">我的</span>
           </button>
         </div>

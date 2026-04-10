@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useApp } from '../context/AppContext'
 import type { Post, Comment, Profile } from '../types'
+import { CommentIcon, HeartIcon, StatusIcon } from '../components/icons'
 
 const LANGUAGES = [
   { code: 'zh-TW', label: '繁中', flag: '🇹🇼' },
@@ -232,7 +233,10 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick, onSta
               <div className="flex items-center gap-2 flex-wrap mb-1">
                 <span className="text-lg font-bold text-gray-900">{userProfile.username}</span>
                 {userProfile.is_available && (
-                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">🟢 有空</span>
+                  <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                    <StatusIcon active className="w-3 h-3" />
+                    有空
+                  </span>
                 )}
               </div>
               <span className="text-xs text-gray-400">{getLanguageLabel(userProfile.language)}</span>
@@ -295,11 +299,12 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick, onSta
             )}
             <div className="flex items-center gap-4">
               <button onClick={() => togglePostLike(post.id)} className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-400 transition-colors">
-                <span>{userLikedPosts.has(post.id) ? '❤️' : '🤍'}</span>
+                <HeartIcon filled={userLikedPosts.has(post.id)} className="w-4 h-4" />
                 {postLikes[post.id] ? <span>{postLikes[post.id]}</span> : null}
               </button>
-              <button onClick={() => toggleComments(post.id)} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
-                💬 {commentCounts[post.id] ? `· ${commentCounts[post.id]}` : '留言'}
+              <button onClick={() => toggleComments(post.id)} className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                <CommentIcon className="w-4 h-4" />
+                {commentCounts[post.id] ? `· ${commentCounts[post.id]}` : '留言'}
               </button>
             </div>
 
@@ -323,7 +328,7 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick, onSta
                           >{comment.profiles?.username}</span>
                           <div className="flex items-center gap-2">
                             <button onClick={() => toggleCommentLike(comment.id)} className="flex items-center gap-0.5 text-xs text-gray-300 hover:text-red-400 transition-colors">
-                              <span>{userLikedComments.has(comment.id) ? '❤️' : '🤍'}</span>
+                              <HeartIcon filled={userLikedComments.has(comment.id)} className="w-3.5 h-3.5" />
                               {commentLikes[comment.id] ? <span>{commentLikes[comment.id]}</span> : null}
                             </button>
                             {comment.user_id === profile?.id && (

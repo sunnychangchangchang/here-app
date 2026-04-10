@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { useApp } from '../context/AppContext'
 import type { Post, Comment, Profile } from '../types'
+import { CommentIcon, HeartIcon, PostIcon, StatusIcon, TagIcon, UserIcon } from '../components/icons'
 
 interface HomePageProps {
   onTagClick?: (tag: string) => void
@@ -383,7 +384,10 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
                   searchTab === tab ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'
                 }`}
               >
-                {tab === 'posts' ? '📝 文章' : tab === 'tags' ? '🏷️ 標籤' : '👤 用戶'}
+                <span className="inline-flex items-center gap-1.5">
+                  {tab === 'posts' ? <PostIcon /> : tab === 'tags' ? <TagIcon /> : <UserIcon className="w-4 h-4" />}
+                  {tab === 'posts' ? '文章' : tab === 'tags' ? '標籤' : '用戶'}
+                </span>
               </button>
             ))}
           </div>
@@ -481,7 +485,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
               waitingForReply ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
             }`}
           >
-            <span>{waitingForReply ? '🟢' : '⚪'}</span>
+            <StatusIcon active={waitingForReply} className="w-3.5 h-3.5" />
             在線等回覆
           </button>
           <button
@@ -551,14 +555,15 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
                 onClick={() => togglePostLike(post.id)}
                 className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-400 transition-colors"
               >
-                <span>{userLikedPosts.has(post.id) ? '❤️' : '🤍'}</span>
+                <HeartIcon filled={userLikedPosts.has(post.id)} className="w-4 h-4" />
                 {postLikes[post.id] ? <span>{postLikes[post.id]}</span> : null}
               </button>
               <button
                 onClick={() => toggleComments(post.id)}
-                className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
               >
-                💬 {commentCounts[post.id] ? `· ${commentCounts[post.id]}` : '留言'}
+                <CommentIcon className="w-4 h-4" />
+                {commentCounts[post.id] ? `· ${commentCounts[post.id]}` : '留言'}
               </button>
             </div>
 
@@ -587,7 +592,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
                               onClick={() => toggleCommentLike(comment.id)}
                               className="flex items-center gap-0.5 text-xs text-gray-300 hover:text-red-400 transition-colors"
                             >
-                              <span>{userLikedComments.has(comment.id) ? '❤️' : '🤍'}</span>
+                              <HeartIcon filled={userLikedComments.has(comment.id)} className="w-3.5 h-3.5" />
                               {commentLikes[comment.id] ? <span>{commentLikes[comment.id]}</span> : null}
                             </button>
                             {comment.user_id === profile?.id && (

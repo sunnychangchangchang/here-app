@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import type { Post, Profile } from '../types'
+import { PostIcon, TagIcon, UserIcon } from '../components/icons'
 
 type SearchTab = 'posts' | 'tags' | 'users'
 
@@ -96,7 +97,10 @@ export default function SearchPage({ initialQuery = '', initialType = 'posts', o
               activeTab === tab ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'
             }`}
           >
-            {tab === 'posts' ? '📝 文章' : tab === 'tags' ? '🏷️ 標籤' : '👤 用戶'}
+            <span className="inline-flex items-center gap-1.5">
+              {tab === 'posts' ? <PostIcon /> : tab === 'tags' ? <TagIcon /> : <UserIcon className="w-4 h-4" />}
+              {tab === 'posts' ? '文章' : tab === 'tags' ? '標籤' : '用戶'}
+            </span>
           </button>
         ))}
       </div>

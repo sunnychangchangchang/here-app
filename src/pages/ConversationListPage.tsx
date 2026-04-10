@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useApp } from '../context/AppContext'
+import { MessageIcon } from '../components/icons'
 
 interface ConvItem {
   id: string
@@ -92,7 +93,9 @@ export default function ConversationListPage({ onStartChat }: ConversationListPa
     <div className="max-w-lg mx-auto">
       {conversations.length === 0 ? (
         <div className="text-center py-20">
-          <p className="text-4xl mb-3">💬</p>
+          <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gray-100 text-gray-500 flex items-center justify-center">
+            <MessageIcon className="w-7 h-7" />
+          </div>
           <p className="text-sm text-gray-500">還沒有對話</p>
           <p className="text-xs text-gray-400 mt-1">去別人的頁面按「傳訊息」開始聊天</p>
         </div>
