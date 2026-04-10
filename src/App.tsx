@@ -23,6 +23,7 @@ function AppContent() {
   const { isLoggedIn, isLoading, profile } = useApp()
   const [activeTab, setActiveTab] = useState<Tab>('home')
   const [unreadCount, setUnreadCount] = useState(0)
+  const [unreadDmCount, setUnreadDmCount] = useState(0)
   const [highlightPostId, setHighlightPostId] = useState<string | null>(null)
   const [viewStack, setViewStack] = useState<AppView[]>([{ type: 'tabs' }])
   const [homeTriggerSearch, setHomeTriggerSearch] = useState<{ query: string; type: 'posts' | 'tags' | 'users' } | null>(null)
@@ -36,14 +37,25 @@ function AppContent() {
   useEffect(() => {
     if (!profile) return
     fetchUnreadCount()
-    const channel = supabase
+    fetchUnreadDmCount()
+
+    const notifChannel = supabase
       .channel('unread-notifications')
       .on('postgres_changes', {
         event: '*', schema: 'public', table: 'notifications',
         filter: `user_id=eq.${profile.id}`
       }, () => fetchUnreadCount())
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
+
+    const dmChannel = supabase
+      .channel('unread-dm')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => fetchUnreadDmCount())
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(notifChannel)
+      supabase.removeChannel(dmChannel)
+    }
   }, [profile])
 
   const fetchUnreadCount = async () => {
@@ -52,6 +64,20 @@ function AppContent() {
       .from('notifications').select('*', { count: 'exact', head: true })
       .eq('user_id', profile.id).eq('is_read', false)
     setUnreadCount(count || 0)
+  }
+
+  const fetchUnreadDmCount = async () => {
+    if (!profile) return
+    const { data: convs } = await supabase
+      .from('conversations').select('id')
+      .or(`user1_id.eq.${profile.id},user2_id.eq.${profile.id}`)
+    if (!convs?.length) { setUnreadDmCount(0); return }
+    const { count } = await supabase
+      .from('messages').select('*', { count: 'exact', head: true })
+      .in('conversation_id', convs.map(c => c.id))
+      .neq('sender_id', profile.id)
+      .eq('is_read', false)
+    setUnreadDmCount(count || 0)
   }
 
   const goToSearch = (query: string, type: 'posts' | 'tags' | 'users' = 'tags') => {
@@ -188,9 +214,14 @@ function AppContent() {
           </button>
           <button
             onClick={() => handleTabChange('messages')}
-            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${activeTab === 'messages' && isOnTabs ? 'text-gray-900' : 'text-gray-400'}`}
+            className={`relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${activeTab === 'messages' && isOnTabs ? 'text-gray-900' : 'text-gray-400'}`}
           >
             <span className="text-xl">💬</span>
+            {unreadDmCount > 0 && (
+              <span className="absolute top-1 right-2 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                {unreadDmCount > 9 ? '9+' : unreadDmCount}
+              </span>
+            )}
             <span className="text-xs font-medium">私訊</span>
           </button>
           <button
