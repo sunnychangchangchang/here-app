@@ -26,6 +26,7 @@ export default function ConversationListPage({ onStartChat }: ConversationListPa
       .channel('conversations-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => fetchConversations())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => fetchConversations())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, () => fetchConversations())
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
