@@ -6,9 +6,10 @@ import type { Message } from '../types'
 interface ChatPageProps {
   conversationId: string
   otherUserId: string
+  onUserClick?: (userId: string) => void
 }
 
-export default function ChatPage({ conversationId }: ChatPageProps) {
+export default function ChatPage({ conversationId, otherUserId, onUserClick }: ChatPageProps) {
   const { profile } = useApp()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')

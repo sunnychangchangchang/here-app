@@ -68,7 +68,10 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick, onSta
     setIsFollowing(!wasFollowing)
     setFollowerCount(prev => wasFollowing ? prev - 1 : prev + 1)
     if (wasFollowing) {
-      await supabase.from('follows').delete().eq('follower_id', profile.id).eq('following_id', userId)
+      // 雙向移除：退追蹤對方，同時移除對方對我的追蹤
+      await supabase.from('follows').delete()
+        .or(`and(follower_id.eq.${profile.id},following_id.eq.${userId}),and(follower_id.eq.${userId},following_id.eq.${profile.id})`)
+      setTheyFollowMe(false)
     } else {
       await supabase.from('follows').insert({ follower_id: profile.id, following_id: userId })
       await supabase.from('notifications').insert({

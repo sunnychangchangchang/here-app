@@ -131,12 +131,15 @@ function AppContent() {
                 </svg>
               </button>
               {currentView.type === 'chat' && (
-                <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleUserClick(currentView.otherUserId)}
+                  className="flex items-center gap-2 hover:opacity-70 transition-opacity"
+                >
                   <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-semibold text-gray-600">
                     {currentView.otherUsername[0].toUpperCase()}
                   </div>
                   <span className="font-semibold text-gray-900">{currentView.otherUsername}</span>
-                </div>
+                </button>
               )}
               {currentView.type === 'conversationList' && (
                 <span className="text-xl font-bold text-gray-900">私訊</span>
@@ -168,7 +171,11 @@ function AppContent() {
           <ConversationListPage onStartChat={openChat} onUserClick={handleUserClick} />
         )}
         {currentView.type === 'chat' && (
-          <ChatPage conversationId={currentView.conversationId} otherUserId={currentView.otherUserId} />
+          <ChatPage
+            conversationId={currentView.conversationId}
+            otherUserId={currentView.otherUserId}
+            onUserClick={handleUserClick}
+          />
         )}
         {isOnTabs && (
           <>
