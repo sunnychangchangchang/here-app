@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { useApp } from '../context/AppContext'
-import type { Post, Comment } from '../types'
+import type { Post, Comment, Profile } from '../types'
 
 interface HomePageProps {
   onTagClick?: (tag: string) => void
   onUserClick?: (userId: string) => void
   highlightPostId?: string | null
+  triggerSearch?: { query: string; type: 'posts' | 'tags' | 'users' } | null
 }
 
-export default function HomePage({ onTagClick, onUserClick, highlightPostId }: HomePageProps) {
+export default function HomePage({ onTagClick, onUserClick, highlightPostId, triggerSearch }: HomePageProps) {
   const { profile } = useApp()
   const [posts, setPosts] = useState<Post[]>([])
   const [newPost, setNewPost] = useState('')
@@ -18,6 +19,13 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId }: H
   const [tagInput, setTagInput] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [expandedPost, setExpandedPost] = useState<string | null>(null)
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchTab, setSearchTab] = useState<'posts' | 'tags' | 'users'>('posts')
+  const [searchPosts, setSearchPosts] = useState<Post[]>([])
+  const [searchUsers, setSearchUsers] = useState<Profile[]>([])
+  const [searching, setSearching] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [comments, setComments] = useState<Record<string, Comment[]>>({})
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
   const [newComment, setNewComment] = useState<Record<string, string>>({})
@@ -51,6 +59,51 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId }: H
       supabase.removeChannel(commentChannel)
     }
   }, [])
+
+  useEffect(() => {
+    if (!triggerSearch) return
+    setShowSearch(true)
+    setSearchQuery(triggerSearch.query)
+    setSearchTab(triggerSearch.type)
+    performSearch(triggerSearch.query, triggerSearch.type)
+  }, [triggerSearch])
+
+  const performSearch = async (q: string, tab: 'posts' | 'tags' | 'users') => {
+    if (!q.trim()) return
+    setSearching(true)
+    if (tab === 'posts') {
+      const { data } = await supabase
+        .from('posts').select('*, profiles(username, language, is_available)')
+        .ilike('content', `%${q}%`).order('created_at', { ascending: false }).limit(20)
+      setSearchPosts(data || [])
+      setSearchUsers([])
+    } else if (tab === 'tags') {
+      const { data } = await supabase
+        .from('posts').select('*, profiles(username, language, is_available)')
+        .contains('tags', [q.replace(/^#/, '')]).order('created_at', { ascending: false }).limit(20)
+      setSearchPosts(data || [])
+      setSearchUsers([])
+    } else {
+      const { data } = await supabase
+        .from('profiles').select('*').ilike('username', `%${q}%`).limit(20)
+      setSearchUsers(data || [])
+      setSearchPosts([])
+    }
+    setSearching(false)
+  }
+
+  const clearSearch = () => {
+    setShowSearch(false)
+    setSearchQuery('')
+    setSearchPosts([])
+    setSearchUsers([])
+  }
+
+  useEffect(() => {
+    if (showSearch && searchInputRef.current) {
+      searchInputRef.current.focus()
+    }
+  }, [showSearch])
 
   useEffect(() => {
     if (!highlightPostId) return
@@ -282,8 +335,116 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId }: H
     return `${Math.floor(diff / 86400)} 天前`
   }
 
+  const formatTimeSearch = (dateStr: string) => {
+    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
+    if (diff < 60) return '剛剛'
+    if (diff < 3600) return `${Math.floor(diff / 60)} 分鐘前`
+    if (diff < 86400) return `${Math.floor(diff / 3600)} 小時前`
+    return `${Math.floor(diff / 86400)} 天前`
+  }
+
   return (
     <div className="max-w-lg mx-auto px-4 py-6">
+      {/* 搜尋列 */}
+      {!showSearch ? (
+        <button
+          onClick={() => setShowSearch(true)}
+          className="w-full flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 text-sm text-gray-400 hover:border-gray-300 transition-colors mb-4"
+        >
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+          </svg>
+          搜尋文章、標籤或用戶...
+        </button>
+      ) : (
+        <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
+          <div className="flex gap-2 mb-3">
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && performSearch(searchQuery, searchTab)}
+              placeholder={searchTab === 'tags' ? '搜尋標籤...' : searchTab === 'users' ? '搜尋用戶...' : '搜尋文章...'}
+              className="flex-1 text-sm focus:outline-none"
+            />
+            <button onClick={clearSearch} className="text-gray-400 hover:text-gray-600 transition-colors">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="flex bg-gray-100 rounded-xl p-1">
+            {(['posts', 'tags', 'users'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => { setSearchTab(tab); setSearchPosts([]); setSearchUsers([]) }}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  searchTab === tab ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'
+                }`}
+              >
+                {tab === 'posts' ? '📝 文章' : tab === 'tags' ? '🏷️ 標籤' : '👤 用戶'}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 搜尋結果 */}
+      {showSearch && (searchPosts.length > 0 || searchUsers.length > 0 || searching) && (
+        <div className="space-y-3 mb-6">
+          {searching && <p className="text-center text-gray-400 text-sm py-4">搜尋中...</p>}
+          {(searchTab === 'posts' || searchTab === 'tags') && searchPosts.map(post => (
+            <div key={post.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div
+                  className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-xs font-medium text-gray-600 cursor-pointer hover:bg-gray-200"
+                  onClick={() => post.user_id !== profile?.id && onUserClick?.(post.user_id)}
+                >
+                  {post.profiles?.username?.[0]?.toUpperCase()}
+                </div>
+                <span
+                  className="text-sm font-medium text-gray-900 cursor-pointer hover:underline"
+                  onClick={() => post.user_id !== profile?.id && onUserClick?.(post.user_id)}
+                >{post.profiles?.username}</span>
+                <span className="text-xs text-gray-400 ml-auto">{formatTimeSearch(post.created_at)}</span>
+              </div>
+              <p className="text-sm text-gray-800 leading-relaxed mb-2">{post.content}</p>
+              {post.tags && post.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {post.tags.map(tag => (
+                    <span key={tag} onClick={() => onTagClick?.(tag)} className="text-xs text-blue-500 cursor-pointer hover:text-blue-700">
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+          {searchTab === 'users' && searchUsers.map(user => (
+            <div
+              key={user.id}
+              onClick={() => onUserClick?.(user.id)}
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3 cursor-pointer hover:bg-gray-50"
+            >
+              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-base font-medium text-gray-600">
+                {user.username[0].toUpperCase()}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-900">{user.username}</span>
+                  {user.is_available && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">有空</span>}
+                </div>
+                {user.bio && <p className="text-xs text-gray-400 mt-0.5">{user.bio}</p>}
+              </div>
+            </div>
+          ))}
+          {!searching && searchQuery && searchPosts.length === 0 && searchUsers.length === 0 && (
+            <p className="text-center text-gray-400 text-sm py-6">沒有找到相關結果</p>
+          )}
+        </div>
+      )}
+
       {/* 發文框 */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6">
         <textarea

@@ -4,14 +4,14 @@ import AuthPage from './pages/AuthPage'
 import HomePage from './pages/HomePage'
 import PlazaPage from './pages/PlazaPage'
 import ProfilePage from './pages/ProfilePage'
-import SearchPage from './pages/SearchPage'
+import MessagesPage from './pages/MessagesPage'
 import NotificationPage from './pages/NotificationPage'
 import UserProfilePage from './pages/UserProfilePage'
 import ConversationListPage from './pages/ConversationListPage'
 import ChatPage from './pages/ChatPage'
 import { supabase } from './supabase'
 
-type Tab = 'home' | 'plaza' | 'search' | 'notifications' | 'profile'
+type Tab = 'home' | 'plaza' | 'messages' | 'notifications' | 'profile'
 
 type AppView =
   | { type: 'tabs' }
@@ -22,11 +22,10 @@ type AppView =
 function AppContent() {
   const { isLoggedIn, isLoading, profile } = useApp()
   const [activeTab, setActiveTab] = useState<Tab>('home')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchType, setSearchType] = useState<'posts' | 'tags' | 'users'>('posts')
   const [unreadCount, setUnreadCount] = useState(0)
   const [highlightPostId, setHighlightPostId] = useState<string | null>(null)
   const [viewStack, setViewStack] = useState<AppView[]>([{ type: 'tabs' }])
+  const [homeTriggerSearch, setHomeTriggerSearch] = useState<{ query: string; type: 'posts' | 'tags' | 'users' } | null>(null)
 
   const currentView = viewStack[viewStack.length - 1]
   const isOnTabs = currentView.type === 'tabs'
@@ -37,35 +36,28 @@ function AppContent() {
   useEffect(() => {
     if (!profile) return
     fetchUnreadCount()
-
     const channel = supabase
       .channel('unread-notifications')
       .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'notifications',
+        event: '*', schema: 'public', table: 'notifications',
         filter: `user_id=eq.${profile.id}`
       }, () => fetchUnreadCount())
       .subscribe()
-
     return () => { supabase.removeChannel(channel) }
   }, [profile])
 
   const fetchUnreadCount = async () => {
     if (!profile) return
     const { count } = await supabase
-      .from('notifications')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', profile.id)
-      .eq('is_read', false)
+      .from('notifications').select('*', { count: 'exact', head: true })
+      .eq('user_id', profile.id).eq('is_read', false)
     setUnreadCount(count || 0)
   }
 
   const goToSearch = (query: string, type: 'posts' | 'tags' | 'users' = 'tags') => {
-    setSearchQuery(query)
-    setSearchType(type)
     setViewStack([{ type: 'tabs' }])
-    setActiveTab('search')
+    setActiveTab('home')
+    setHomeTriggerSearch({ query, type })
   }
 
   const handleTabChange = (tab: Tab) => {
@@ -127,7 +119,7 @@ function AppContent() {
             <h1 className="text-xl font-bold text-gray-900">
               {activeTab === 'home' && 'Here'}
               {activeTab === 'plaza' && '廣場'}
-              {activeTab === 'search' && '搜尋'}
+              {activeTab === 'messages' && '私訊'}
               {activeTab === 'notifications' && '通知'}
               {activeTab === 'profile' && '我的'}
             </h1>
@@ -146,16 +138,10 @@ function AppContent() {
           />
         )}
         {currentView.type === 'conversationList' && (
-          <ConversationListPage
-            onStartChat={openChat}
-            onUserClick={handleUserClick}
-          />
+          <ConversationListPage onStartChat={openChat} onUserClick={handleUserClick} />
         )}
         {currentView.type === 'chat' && (
-          <ChatPage
-            conversationId={currentView.conversationId}
-            otherUserId={currentView.otherUserId}
-          />
+          <ChatPage conversationId={currentView.conversationId} otherUserId={currentView.otherUserId} />
         )}
         {isOnTabs && (
           <>
@@ -164,15 +150,12 @@ function AppContent() {
                 onTagClick={(tag) => goToSearch(tag, 'tags')}
                 onUserClick={handleUserClick}
                 highlightPostId={highlightPostId}
+                triggerSearch={homeTriggerSearch}
               />
             )}
             {activeTab === 'plaza' && <PlazaPage onUserClick={handleUserClick} />}
-            {activeTab === 'search' && (
-              <SearchPage
-                initialQuery={searchQuery}
-                initialType={searchType}
-                onUserClick={handleUserClick}
-              />
+            {activeTab === 'messages' && (
+              <MessagesPage onStartChat={openChat} onUserClick={handleUserClick} />
             )}
             {activeTab === 'notifications' && (
               <NotificationPage onPostClick={(postId) => {
@@ -181,9 +164,7 @@ function AppContent() {
                 setActiveTab('home')
               }} />
             )}
-            {activeTab === 'profile' && (
-              <ProfilePage onOpenConversationList={() => navigate({ type: 'conversationList' })} />
-            )}
+            {activeTab === 'profile' && <ProfilePage />}
           </>
         )}
       </div>
@@ -191,27 +172,30 @@ function AppContent() {
       {/* 底部導航 */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100">
         <div className="max-w-lg mx-auto px-4 py-2 flex justify-around">
-          {([
-            { tab: 'home', icon: '🏠', label: '首頁' },
-            { tab: 'plaza', icon: '🟢', label: '廣場' },
-            { tab: 'search', icon: '🔍', label: '搜尋' },
-          ] as const).map(({ tab, icon, label }) => (
-            <button
-              key={tab}
-              onClick={() => handleTabChange(tab)}
-              className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
-                activeTab === tab && isOnTabs ? 'text-gray-900' : 'text-gray-400'
-              }`}
-            >
-              <span className="text-xl">{icon}</span>
-              <span className="text-xs font-medium">{label}</span>
-            </button>
-          ))}
+          <button
+            onClick={() => handleTabChange('home')}
+            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${activeTab === 'home' && isOnTabs ? 'text-gray-900' : 'text-gray-400'}`}
+          >
+            <span className="text-xl">🏠</span>
+            <span className="text-xs font-medium">首頁</span>
+          </button>
+          <button
+            onClick={() => handleTabChange('plaza')}
+            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${activeTab === 'plaza' && isOnTabs ? 'text-gray-900' : 'text-gray-400'}`}
+          >
+            <span className="text-xl">🟢</span>
+            <span className="text-xs font-medium">廣場</span>
+          </button>
+          <button
+            onClick={() => handleTabChange('messages')}
+            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${activeTab === 'messages' && isOnTabs ? 'text-gray-900' : 'text-gray-400'}`}
+          >
+            <span className="text-xl">💬</span>
+            <span className="text-xs font-medium">私訊</span>
+          </button>
           <button
             onClick={() => handleTabChange('notifications')}
-            className={`relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
-              activeTab === 'notifications' && isOnTabs ? 'text-gray-900' : 'text-gray-400'
-            }`}
+            className={`relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${activeTab === 'notifications' && isOnTabs ? 'text-gray-900' : 'text-gray-400'}`}
           >
             <span className="text-xl">🔔</span>
             {unreadCount > 0 && (
@@ -223,9 +207,7 @@ function AppContent() {
           </button>
           <button
             onClick={() => handleTabChange('profile')}
-            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
-              activeTab === 'profile' && isOnTabs ? 'text-gray-900' : 'text-gray-400'
-            }`}
+            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${activeTab === 'profile' && isOnTabs ? 'text-gray-900' : 'text-gray-400'}`}
           >
             <span className="text-xl">👤</span>
             <span className="text-xs font-medium">我的</span>
