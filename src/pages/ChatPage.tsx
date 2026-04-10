@@ -24,6 +24,7 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const messagesRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // visualViewport 偵測鍵盤高度
   useEffect(() => {
@@ -96,6 +97,7 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
     if (!content && !image_url) return
     if (!profile) return
     setInput('')
+    inputRef.current?.focus()
     await supabase.from('messages').insert({
       conversation_id: conversationId,
       sender_id: profile.id,
@@ -210,6 +212,7 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
           <input
             value={input}
             onChange={e => setInput(e.target.value)}
+            ref={inputRef}
             onKeyDown={e => e.key === 'Enter' && sendMessage()}
             placeholder="傳訊息..."
             style={{ fontSize: '16px' }}

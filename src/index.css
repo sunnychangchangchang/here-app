@@ -12,3 +12,8 @@ html, body {
 #root {
   height: 100%;
 }
+
+/* 防止 iOS 打字時自動縮放頁面 */
+input, textarea, select {
+  font-size: 16px !important;
+}
