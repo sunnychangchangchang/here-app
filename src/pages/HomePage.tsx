@@ -626,14 +626,20 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
 
             {/* 圖片 */}
             {post.image_urls?.length > 0 && (
-              <div className={`grid gap-1.5 mb-3 ${post.image_urls.length === 1 ? 'grid-cols-1' : post.image_urls.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+              <div className={`flex gap-1.5 mb-3 ${post.image_urls.length === 1 ? 'justify-start' : ''}`}>
                 {post.image_urls.map((url, i) => (
-                  <img
+                  <div
                     key={i}
-                    src={url}
                     onClick={() => setLightboxUrl(url)}
-                    className={`w-full object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity ${post.image_urls.length === 1 ? 'max-h-72' : 'h-28'}`}
-                  />
+                    className={`relative overflow-hidden rounded-xl cursor-pointer group flex-shrink-0 ${
+                      post.image_urls.length === 1 ? 'w-48 h-48' : 'w-24 h-24'
+                    }`}
+                  >
+                    <img
+                      src={url}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                    />
+                  </div>
                 ))}
               </div>
             )}
