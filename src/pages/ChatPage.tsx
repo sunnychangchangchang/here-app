@@ -16,8 +16,34 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
   const [input, setInput] = useState('')
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [inputBottom, setInputBottom] = useState(0)
   const bottomRef = useRef<HTMLDivElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
+
+  // 偵測鍵盤高度，讓 input 貼著鍵盤
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+
+    const update = () => {
+      const keyboardHeight = window.innerHeight - vv.height - vv.offsetTop
+      setInputBottom(Math.max(0, keyboardHeight))
+      // 鍵盤展開時自動捲到底
+      if (keyboardHeight > 50) {
+        setTimeout(() => {
+          bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+        }, 50)
+      }
+    }
+
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [])
 
   useEffect(() => {
     fetchMessages()
@@ -99,9 +125,18 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
     isLast: i === messages.length - 1 || messages[i + 1].sender_id !== msg.sender_id,
   }))
 
+  // input bar 高度約 64px + 底部導航 64px
+  const inputBarHeight = 64
+  const tabBarHeight = 64
+
   return (
     <>
-      <div className="max-w-lg mx-auto px-4 pt-4 pb-36">
+      {/* 訊息列表 */}
+      <div
+        ref={scrollAreaRef}
+        className="max-w-lg mx-auto px-4 pt-4"
+        style={{ paddingBottom: `${inputBarHeight + tabBarHeight + inputBottom + 16}px` }}
+      >
         {messages.length === 0 && (
           <div className="text-center text-gray-400 text-sm py-12">傳一則訊息開始對話吧</div>
         )}
@@ -114,18 +149,16 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
               className={`flex ${isMine ? 'justify-end' : 'justify-start'} ${msg.isFirst ? 'mt-4' : 'mt-0.5'}`}
             >
               <div className={`max-w-[72%] ${isMine ? 'items-end' : 'items-start'} flex flex-col`}>
-                {/* 圖片訊息 */}
                 {msg.image_url && (
                   <img
                     src={msg.image_url}
                     onClick={() => setLightboxUrl(msg.image_url!)}
-                    className={`max-w-full object-cover cursor-pointer hover:opacity-90 transition-opacity ${
+                    className={`max-w-full object-cover cursor-pointer active:opacity-80 transition-opacity ${
                       isMine ? 'rounded-2xl rounded-br-sm' : 'rounded-2xl rounded-bl-sm'
                     }`}
                     style={{ maxHeight: '240px' }}
                   />
                 )}
-                {/* 文字訊息 */}
                 {msg.content && (
                   <div className={`px-4 py-2.5 text-sm leading-relaxed ${
                     isMine
@@ -146,13 +179,16 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input bar */}
-      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3">
+      {/* Input bar — 動態跟著鍵盤走 */}
+      <div
+        className="fixed left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-20 transition-none"
+        style={{ bottom: `${tabBarHeight + inputBottom}px` }}
+      >
         <div className="max-w-lg mx-auto flex gap-2 items-center">
           <button
             onClick={() => imageInputRef.current?.click()}
             disabled={uploadingImage}
-            className="w-9 h-9 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center flex-shrink-0 hover:bg-gray-200 transition-colors disabled:opacity-40"
+            className="w-9 h-9 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center flex-shrink-0 active:bg-gray-200 transition-colors disabled:opacity-40"
           >
             {uploadingImage ? (
               <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
@@ -172,7 +208,7 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
           <button
             onClick={() => sendMessage()}
             disabled={!input.trim()}
-            className="w-9 h-9 bg-gray-900 text-white rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity"
+            className="w-9 h-9 bg-gray-900 text-white rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />
@@ -195,7 +231,7 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
           />
           <button
             onClick={() => setLightboxUrl(null)}
-            className="absolute top-4 right-4 w-9 h-9 bg-white/20 text-white rounded-full flex items-center justify-center hover:bg-white/30"
+            className="absolute top-4 right-4 w-9 h-9 bg-white/20 text-white rounded-full flex items-center justify-center"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
