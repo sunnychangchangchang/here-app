@@ -72,12 +72,13 @@ function AppContent() {
       .from('conversations').select('id')
       .or(`user1_id.eq.${profile.id},user2_id.eq.${profile.id}`)
     if (!convs?.length) { setUnreadDmCount(0); return }
-    const { count } = await supabase
-      .from('messages').select('*', { count: 'exact', head: true })
+    const { data: unreadMsgs } = await supabase
+      .from('messages').select('conversation_id')
       .in('conversation_id', convs.map(c => c.id))
       .neq('sender_id', profile.id)
       .eq('is_read', false)
-    setUnreadDmCount(count || 0)
+    const uniqueConvs = new Set((unreadMsgs || []).map(m => m.conversation_id))
+    setUnreadDmCount(uniqueConvs.size)
   }
 
   const goToSearch = (query: string, type: 'posts' | 'tags' | 'users' = 'tags') => {
