@@ -587,8 +587,8 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
         />
       </div>
 
-      {/* 文章列表 */}
-      <div className="space-y-3">
+      {/* 文章列表 — 搜尋時隱藏 */}
+      {!showSearch && <div className="space-y-3">
         {posts.length === 0 && (
           <div className="text-center text-gray-400 text-sm py-12">還沒有人發文，來第一個吧</div>
         )}
@@ -733,7 +733,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
             )}
           </div>
         ))}
-      </div>
+      </div>}
 
       {/* Lightbox */}
       {lightbox && (
