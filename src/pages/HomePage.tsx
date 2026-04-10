@@ -22,6 +22,10 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId }: H
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
   const [newComment, setNewComment] = useState<Record<string, string>>({})
   const [scrollToLastCommentPostId, setScrollToLastCommentPostId] = useState<string | null>(null)
+  const [postLikes, setPostLikes] = useState<Record<string, number>>({})
+  const [userLikedPosts, setUserLikedPosts] = useState<Set<string>>(new Set())
+  const [commentLikes, setCommentLikes] = useState<Record<string, number>>({})
+  const [userLikedComments, setUserLikedComments] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchPosts()
@@ -58,7 +62,6 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId }: H
     }, 300)
   }, [highlightPostId])
 
-  // 當留言載入完後，自動 scroll 到最後一則
   useEffect(() => {
     if (!scrollToLastCommentPostId) return
     const postComments = comments[scrollToLastCommentPostId]
@@ -79,6 +82,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId }: H
     if (data) {
       setPosts(data)
       data.forEach(post => fetchCommentCount(post.id))
+      fetchPostLikes(data.map(p => p.id))
     }
   }
 
@@ -96,7 +100,80 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId }: H
       .select('*, profiles(username)')
       .eq('post_id', postId)
       .order('created_at', { ascending: true })
-    if (data) setComments(prev => ({ ...prev, [postId]: data }))
+    if (data) {
+      setComments(prev => ({ ...prev, [postId]: data }))
+      fetchCommentLikes(data.map(c => c.id))
+    }
+  }
+
+  const fetchPostLikes = async (postIds: string[]) => {
+    if (!postIds.length || !profile) return
+    const { data } = await supabase
+      .from('post_likes')
+      .select('post_id, user_id')
+      .in('post_id', postIds)
+    if (!data) return
+    const counts: Record<string, number> = {}
+    const liked = new Set<string>()
+    for (const like of data) {
+      counts[like.post_id] = (counts[like.post_id] || 0) + 1
+      if (like.user_id === profile.id) liked.add(like.post_id)
+    }
+    setPostLikes(counts)
+    setUserLikedPosts(liked)
+  }
+
+  const fetchCommentLikes = async (commentIds: string[]) => {
+    if (!commentIds.length || !profile) return
+    const { data } = await supabase
+      .from('comment_likes')
+      .select('comment_id, user_id')
+      .in('comment_id', commentIds)
+    if (!data) return
+    const counts: Record<string, number> = {}
+    const liked = new Set<string>()
+    for (const like of data) {
+      counts[like.comment_id] = (counts[like.comment_id] || 0) + 1
+      if (like.user_id === profile.id) liked.add(like.comment_id)
+    }
+    setCommentLikes(prev => ({ ...prev, ...counts }))
+    setUserLikedComments(prev => {
+      const next = new Set(prev)
+      liked.forEach(id => next.add(id))
+      return next
+    })
+  }
+
+  const togglePostLike = async (postId: string) => {
+    if (!profile) return
+    const isLiked = userLikedPosts.has(postId)
+    setUserLikedPosts(prev => {
+      const next = new Set(prev)
+      isLiked ? next.delete(postId) : next.add(postId)
+      return next
+    })
+    setPostLikes(prev => ({ ...prev, [postId]: Math.max((prev[postId] || 0) + (isLiked ? -1 : 1), 0) }))
+    if (isLiked) {
+      await supabase.from('post_likes').delete().eq('post_id', postId).eq('user_id', profile.id)
+    } else {
+      await supabase.from('post_likes').insert({ post_id: postId, user_id: profile.id })
+    }
+  }
+
+  const toggleCommentLike = async (commentId: string) => {
+    if (!profile) return
+    const isLiked = userLikedComments.has(commentId)
+    setUserLikedComments(prev => {
+      const next = new Set(prev)
+      isLiked ? next.delete(commentId) : next.add(commentId)
+      return next
+    })
+    setCommentLikes(prev => ({ ...prev, [commentId]: Math.max((prev[commentId] || 0) + (isLiked ? -1 : 1), 0) }))
+    if (isLiked) {
+      await supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', profile.id)
+    } else {
+      await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: profile.id })
+    }
   }
 
   const toggleComments = async (postId: string) => {
@@ -141,43 +218,18 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId }: H
 
   const deletePost = async (postId: string) => {
     if (!profile) return
-
-    const { error } = await supabase
-      .from('posts')
-      .delete()
-      .eq('id', postId)
-      .eq('user_id', profile.id)
-
+    const { error } = await supabase.from('posts').delete().eq('id', postId).eq('user_id', profile.id)
     if (error) return
-
     setPosts(prev => prev.filter(post => post.id !== postId))
-    setComments(prev => {
-      const next = { ...prev }
-      delete next[postId]
-      return next
-    })
-    setCommentCounts(prev => {
-      const next = { ...prev }
-      delete next[postId]
-      return next
-    })
-    setNewComment(prev => {
-      const next = { ...prev }
-      delete next[postId]
-      return next
-    })
-    if (expandedPost === postId) {
-      setExpandedPost(null)
-    }
+    setComments(prev => { const next = { ...prev }; delete next[postId]; return next })
+    setCommentCounts(prev => { const next = { ...prev }; delete next[postId]; return next })
+    setNewComment(prev => { const next = { ...prev }; delete next[postId]; return next })
+    if (expandedPost === postId) setExpandedPost(null)
   }
 
   const deleteComment = async (commentId: string, postId: string) => {
     if (!profile) return
-    // Optimistic update
-    setComments(prev => ({
-      ...prev,
-      [postId]: (prev[postId] || []).filter(c => c.id !== commentId)
-    }))
+    setComments(prev => ({ ...prev, [postId]: (prev[postId] || []).filter(c => c.id !== commentId) }))
     setCommentCounts(prev => ({ ...prev, [postId]: Math.max((prev[postId] || 1) - 1, 0) }))
     await supabase.from('comments').delete().eq('id', commentId).eq('user_id', profile.id)
   }
@@ -186,19 +238,12 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId }: H
     const content = newComment[postId]?.trim()
     if (!content || !profile) return
 
-    await supabase.from('comments').insert({
-      post_id: postId,
-      user_id: profile.id,
-      content
-    })
-
+    await supabase.from('comments').insert({ post_id: postId, user_id: profile.id, content })
     setNewComment(prev => ({ ...prev, [postId]: '' }))
 
-    // 通知文章作者（不通知自己）
     const post = posts.find(p => p.id === postId)
     if (!post || post.user_id === profile.id) return
 
-    // 取得這篇文章所有留言者（排除作者），組成聚合訊息
     const { data: allComments } = await supabase
       .from('comments')
       .select('user_id, profiles(username)')
@@ -209,39 +254,23 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId }: H
     const uniqueCommenters: string[] = []
     for (const c of allComments || []) {
       const username = (c.profiles as any)?.username
-      if (username && !seen.has(username)) {
-        seen.add(username)
-        uniqueCommenters.push(username)
-      }
+      if (username && !seen.has(username)) { seen.add(username); uniqueCommenters.push(username) }
     }
 
     const preview = post.content.length > 20 ? post.content.slice(0, 20) + '...' : post.content
-    let message = ''
-    if (uniqueCommenters.length <= 3) {
-      message = `${uniqueCommenters.join('、')} 留言了你的文章「${preview}」`
-    } else {
-      message = `${uniqueCommenters.slice(0, 3).join('、')} 和其他人留言了你的文章「${preview}」`
-    }
+    const message = uniqueCommenters.length <= 3
+      ? `${uniqueCommenters.join('、')} 留言了你的文章「${preview}」`
+      : `${uniqueCommenters.slice(0, 3).join('、')} 和其他人留言了你的文章「${preview}」`
 
-    // 若已有未讀通知就更新，否則新增
     const { data: existing } = await supabase
-      .from('notifications')
-      .select('id')
-      .eq('user_id', post.user_id)
-      .eq('post_id', postId)
-      .eq('type', 'comment')
-      .eq('is_read', false)
-      .maybeSingle()
+      .from('notifications').select('id')
+      .eq('user_id', post.user_id).eq('post_id', postId)
+      .eq('type', 'comment').eq('is_read', false).maybeSingle()
 
     if (existing) {
       await supabase.from('notifications').update({ message }).eq('id', existing.id)
     } else {
-      await supabase.from('notifications').insert({
-        user_id: post.user_id,
-        type: 'comment',
-        message,
-        post_id: postId
-      })
+      await supabase.from('notifications').insert({ user_id: post.user_id, type: 'comment', message, post_id: postId })
     }
   }
 
@@ -264,15 +293,10 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId }: H
           className="w-full text-sm text-gray-800 placeholder-gray-400 resize-none focus:outline-none"
           rows={3}
         />
-
-        {/* Hashtag 輸入 */}
         <div className="mt-2">
           <div className="flex flex-wrap gap-1 mb-1">
             {tags.map(tag => (
-              <span
-                key={tag}
-                className="flex items-center gap-1 text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full"
-              >
+              <span key={tag} className="flex items-center gap-1 text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
                 #{tag}
                 <button onClick={() => removeTag(tag)} className="text-blue-400 hover:text-blue-600">×</button>
               </span>
@@ -289,7 +313,6 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId }: H
             />
           )}
         </div>
-
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
           <button
             onClick={() => setWaitingForReply(!waitingForReply)}
@@ -313,9 +336,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId }: H
       {/* 文章列表 */}
       <div className="space-y-3">
         {posts.length === 0 && (
-          <div className="text-center text-gray-400 text-sm py-12">
-            還沒有人發文，來第一個吧
-          </div>
+          <div className="text-center text-gray-400 text-sm py-12">還沒有人發文，來第一個吧</div>
         )}
         {posts.map(post => (
           <div key={post.id} id={`post-${post.id}`} className={`bg-white rounded-2xl border shadow-sm p-4 ${
@@ -346,10 +367,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId }: H
                 </div>
               </div>
               {post.user_id === profile?.id && (
-                <button
-                  onClick={() => deletePost(post.id)}
-                  className="text-xs text-gray-300 hover:text-red-400 transition-colors"
-                >
+                <button onClick={() => deletePost(post.id)} className="text-xs text-gray-300 hover:text-red-400 transition-colors">
                   刪除
                 </button>
               )}
@@ -360,23 +378,28 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId }: H
             {post.tags && post.tags.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-3">
                 {post.tags.map(tag => (
-                  <span
-                    key={tag}
-                    onClick={() => onTagClick?.(tag)}
-                    className="text-xs text-blue-500 hover:text-blue-700 cursor-pointer"
-                  >
+                  <span key={tag} onClick={() => onTagClick?.(tag)} className="text-xs text-blue-500 hover:text-blue-700 cursor-pointer">
                     #{tag}
                   </span>
                 ))}
               </div>
             )}
 
-            <button
-              onClick={() => toggleComments(post.id)}
-              className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              💬 留言 {commentCounts[post.id] ? `· ${commentCounts[post.id]}` : ''}
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => togglePostLike(post.id)}
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-400 transition-colors"
+              >
+                <span>{userLikedPosts.has(post.id) ? '❤️' : '🤍'}</span>
+                {postLikes[post.id] ? <span>{postLikes[post.id]}</span> : null}
+              </button>
+              <button
+                onClick={() => toggleComments(post.id)}
+                className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                💬 {commentCounts[post.id] ? `· ${commentCounts[post.id]}` : '留言'}
+              </button>
+            </div>
 
             {expandedPost === post.id && (
               <div className="mt-3 pt-3 border-t border-gray-50">
@@ -398,14 +421,20 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId }: H
                             className={`text-xs font-medium text-gray-700 ${comment.user_id !== profile?.id ? 'cursor-pointer hover:text-gray-900' : ''}`}
                             onClick={() => comment.user_id !== profile?.id && onUserClick?.(comment.user_id)}
                           >{comment.profiles?.username}</span>
-                          {comment.user_id === profile?.id && (
+                          <div className="flex items-center gap-2">
                             <button
-                              onClick={() => deleteComment(comment.id, post.id)}
-                              className="text-xs text-gray-300 hover:text-red-400 transition-colors"
+                              onClick={() => toggleCommentLike(comment.id)}
+                              className="flex items-center gap-0.5 text-xs text-gray-300 hover:text-red-400 transition-colors"
                             >
-                              刪除
+                              <span>{userLikedComments.has(comment.id) ? '❤️' : '🤍'}</span>
+                              {commentLikes[comment.id] ? <span>{commentLikes[comment.id]}</span> : null}
                             </button>
-                          )}
+                            {comment.user_id === profile?.id && (
+                              <button onClick={() => deleteComment(comment.id, post.id)} className="text-xs text-gray-300 hover:text-red-400 transition-colors">
+                                刪除
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <p className="text-xs text-gray-600 mt-0.5">{comment.content}</p>
                       </div>
@@ -421,10 +450,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId }: H
                     placeholder="留言..."
                     className="flex-1 text-xs border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gray-200"
                   />
-                  <button
-                    onClick={() => submitComment(post.id)}
-                    className="text-xs bg-gray-900 text-white px-3 py-2 rounded-xl"
-                  >
+                  <button onClick={() => submitComment(post.id)} className="text-xs bg-gray-900 text-white px-3 py-2 rounded-xl">
                     送出
                   </button>
                 </div>

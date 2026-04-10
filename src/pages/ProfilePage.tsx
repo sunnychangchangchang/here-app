@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useApp } from '../context/AppContext'
 
@@ -19,6 +19,19 @@ export default function ProfilePage() {
   const [language, setLanguage] = useState(profile?.language || 'zh-TW')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [followerCount, setFollowerCount] = useState(0)
+  const [followingCount, setFollowingCount] = useState(0)
+
+  useEffect(() => {
+    if (!profile) return
+    Promise.all([
+      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profile.id),
+      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profile.id),
+    ]).then(([followers, following]) => {
+      setFollowerCount(followers.count || 0)
+      setFollowingCount(following.count || 0)
+    })
+  }, [profile])
 
   const saveProfile = async () => {
     if (!profile) return
@@ -54,6 +67,16 @@ export default function ProfilePage() {
         }`}>
           {profile?.is_available ? '🟢 現在有空' : '⚪ 目前在忙'}
         </span>
+        <div className="flex gap-6 mt-3">
+          <div className="text-center">
+            <p className="text-sm font-semibold text-gray-900">{followerCount}</p>
+            <p className="text-xs text-gray-400">追蹤者</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-semibold text-gray-900">{followingCount}</p>
+            <p className="text-xs text-gray-400">追蹤中</p>
+          </div>
+        </div>
       </div>
 
       {/* 編輯表單 */}
