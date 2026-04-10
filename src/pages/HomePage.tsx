@@ -134,9 +134,11 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
   }, [comments, scrollToLastCommentPostId])
 
   const fetchPosts = async () => {
+    const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
     const { data } = await supabase
       .from('posts')
       .select('*, profiles(username, language, is_available)')
+      .gte('created_at', since)
       .order('created_at', { ascending: false })
       .limit(50)
     if (data) {
