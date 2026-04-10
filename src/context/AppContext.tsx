@@ -52,9 +52,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   const signOut = async () => {
-    if (profile) {
-      await supabase.from('profiles').update({ is_available: false }).eq('id', profile.id)
-    }
     await supabase.auth.signOut()
   }
 

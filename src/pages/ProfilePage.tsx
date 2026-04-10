@@ -21,6 +21,9 @@ export default function ProfilePage() {
   const [message, setMessage] = useState('')
   const [followerCount, setFollowerCount] = useState(0)
   const [followingCount, setFollowingCount] = useState(0)
+  const [feedback, setFeedback] = useState('')
+  const [feedbackLoading, setFeedbackLoading] = useState(false)
+  const [feedbackMessage, setFeedbackMessage] = useState('')
 
   useEffect(() => {
     if (!profile) return
@@ -32,6 +35,21 @@ export default function ProfilePage() {
       setFollowingCount(following.count || 0)
     })
   }, [profile])
+
+  const submitFeedback = async () => {
+    if (!profile || !feedback.trim()) return
+    setFeedbackLoading(true)
+    const { error } = await supabase.from('feedback').insert({
+      user_id: profile.id,
+      content: feedback.trim()
+    })
+    if (!error) {
+      setFeedback('')
+      setFeedbackMessage('感謝你的回饋！')
+      setTimeout(() => setFeedbackMessage(''), 3000)
+    }
+    setFeedbackLoading(false)
+  }
 
   const saveProfile = async () => {
     if (!profile) return
@@ -107,6 +125,31 @@ export default function ProfilePage() {
           className="w-full bg-gray-900 text-white py-3 rounded-xl font-medium text-sm hover:bg-gray-700 transition-colors disabled:opacity-50"
         >
           {loading ? '儲存中...' : '儲存'}
+        </button>
+      </div>
+
+      {/* 回饋 */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mt-4 space-y-3">
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">回饋給開發者</label>
+          <p className="text-xs text-gray-400 mb-2">遇到 bug、有新功能想法、或任何建議都歡迎</p>
+          <textarea
+            value={feedback}
+            onChange={e => setFeedback(e.target.value)}
+            placeholder="說說你的想法..."
+            rows={3}
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none"
+          />
+        </div>
+        {feedbackMessage && (
+          <p className="text-green-600 text-sm bg-green-50 rounded-xl px-4 py-3 font-medium">{feedbackMessage}</p>
+        )}
+        <button
+          onClick={submitFeedback}
+          disabled={feedbackLoading || !feedback.trim()}
+          className="w-full bg-gray-900 text-white py-3 rounded-xl font-medium text-sm hover:bg-gray-700 transition-colors disabled:opacity-50"
+        >
+          {feedbackLoading ? '送出中...' : '送出回饋'}
         </button>
       </div>
 
