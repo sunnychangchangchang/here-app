@@ -120,12 +120,12 @@ function AppContent() {
     <div className="min-h-screen bg-gray-50">
       {/* 頂部標題 */}
       <div className="bg-white border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-lg mx-auto px-4 py-4">
+        <div className="max-w-lg mx-auto px-4 py-3 relative flex items-center justify-center min-h-[48px]">
           {!isOnTabs ? (
-            <div className="flex items-center gap-3">
+            <>
               <button
                 onClick={goBack}
-                className="flex items-center justify-center w-8 h-8 -ml-1 text-gray-500 hover:text-gray-900 transition-colors"
+                className="absolute left-4 flex items-center justify-center w-8 h-8 text-gray-500 active:text-gray-900 transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -134,7 +134,7 @@ function AppContent() {
               {currentView.type === 'chat' && (
                 <button
                   onClick={() => handleUserClick(currentView.otherUserId)}
-                  className="flex items-center gap-2 hover:opacity-70 transition-opacity"
+                  className="flex items-center gap-2 active:opacity-60 transition-opacity"
                 >
                   <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-semibold text-gray-600">
                     {currentView.otherUsername[0].toUpperCase()}
@@ -143,11 +143,14 @@ function AppContent() {
                 </button>
               )}
               {currentView.type === 'conversationList' && (
-                <span className="text-xl font-bold text-gray-900">私訊</span>
+                <span className="text-base font-bold text-gray-900">私訊</span>
               )}
-            </div>
+              {currentView.type === 'userProfile' && (
+                <span className="text-base font-bold text-gray-900">個人頁面</span>
+              )}
+            </>
           ) : (
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-base font-bold text-gray-900">
               {activeTab === 'home' && 'Here'}
               {activeTab === 'plaza' && '廣場'}
               {activeTab === 'messages' && '私訊'}
@@ -159,7 +162,7 @@ function AppContent() {
       </div>
 
       {/* 頁面內容 */}
-      <div className="pb-20">
+      <div className="pb-20" style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' }}>
         {currentView.type === 'userProfile' && (
           <UserProfilePage
             userId={currentView.userId}
@@ -205,53 +208,34 @@ function AppContent() {
       </div>
 
       {/* 底部導航 */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100">
-        <div className="max-w-lg mx-auto px-4 py-2 flex justify-around">
-          <button
-            onClick={() => handleTabChange('home')}
-            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${activeTab === 'home' && isOnTabs ? 'text-gray-900' : 'text-gray-400'}`}
-          >
-            <HomeIcon className="w-5 h-5" />
-            <span className="text-xs font-medium">首頁</span>
-          </button>
-          <button
-            onClick={() => handleTabChange('plaza')}
-            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${activeTab === 'plaza' && isOnTabs ? 'text-gray-900' : 'text-gray-400'}`}
-          >
-            <PlazaIcon className="w-5 h-5" />
-            <span className="text-xs font-medium">廣場</span>
-          </button>
-          <button
-            onClick={() => handleTabChange('messages')}
-            className={`relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${activeTab === 'messages' && isOnTabs ? 'text-gray-900' : 'text-gray-400'}`}
-          >
-            <MessageIcon className="w-5 h-5" />
-            {unreadDmCount > 0 && (
-              <span className="absolute top-1 right-2 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                {unreadDmCount > 9 ? '9+' : unreadDmCount}
-              </span>
-            )}
-            <span className="text-xs font-medium">私訊</span>
-          </button>
-          <button
-            onClick={() => handleTabChange('notifications')}
-            className={`relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${activeTab === 'notifications' && isOnTabs ? 'text-gray-900' : 'text-gray-400'}`}
-          >
-            <BellIcon className="w-5 h-5" />
-            {unreadCount > 0 && (
-              <span className="absolute top-1 right-2 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-            <span className="text-xs font-medium">通知</span>
-          </button>
-          <button
-            onClick={() => handleTabChange('profile')}
-            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${activeTab === 'profile' && isOnTabs ? 'text-gray-900' : 'text-gray-400'}`}
-          >
-            <UserIcon className="w-5 h-5" />
-            <span className="text-xs font-medium">我的</span>
-          </button>
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-gray-100" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="max-w-lg mx-auto px-2 py-1 flex justify-around">
+          {([
+            { tab: 'home' as Tab, icon: <HomeIcon className="w-5 h-5" />, label: '首頁' },
+            { tab: 'plaza' as Tab, icon: <PlazaIcon className="w-5 h-5" />, label: '廣場' },
+            { tab: 'messages' as Tab, icon: <MessageIcon className="w-5 h-5" />, label: '私訊', badge: unreadDmCount },
+            { tab: 'notifications' as Tab, icon: <BellIcon className="w-5 h-5" />, label: '通知', badge: unreadCount },
+            { tab: 'profile' as Tab, icon: <UserIcon className="w-5 h-5" />, label: '我的' },
+          ] as { tab: Tab; icon: React.ReactNode; label: string; badge?: number }[]).map(({ tab, icon, label, badge }) => {
+            const active = activeTab === tab && isOnTabs
+            return (
+              <button
+                key={tab}
+                onClick={() => handleTabChange(tab)}
+                className="relative flex flex-col items-center gap-0.5 px-4 py-2 min-w-[56px] active:scale-95 transition-transform"
+              >
+                <div className={`p-1.5 rounded-xl transition-all duration-200 ${active ? 'bg-gray-100' : ''}`}>
+                  <span className={active ? 'text-gray-900' : 'text-gray-400'}>{icon}</span>
+                </div>
+                <span className={`text-[10px] font-medium transition-colors ${active ? 'text-gray-900' : 'text-gray-400'}`}>{label}</span>
+                {badge != null && badge > 0 && (
+                  <span className="absolute top-1.5 right-2.5 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-medium">
+                    {badge > 9 ? '9+' : badge}
+                  </span>
+                )}
+              </button>
+            )
+          })}
         </div>
       </div>
     </div>

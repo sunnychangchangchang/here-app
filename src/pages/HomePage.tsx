@@ -733,19 +733,35 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
       {/* Lightbox */}
       {lightbox && (
         <div
-          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center"
+          className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center"
           onClick={() => setLightbox(null)}
+          onTouchStart={e => {
+            const t = e.touches[0]
+            ;(e.currentTarget as any)._touchStartX = t.clientX
+          }}
+          onTouchEnd={e => {
+            const startX = (e.currentTarget as any)._touchStartX
+            const endX = e.changedTouches[0].clientX
+            const diff = startX - endX
+            if (Math.abs(diff) > 50) {
+              if (diff > 0 && lightbox.index < lightbox.urls.length - 1) {
+                setLightbox(prev => prev && { ...prev, index: prev.index + 1 })
+              } else if (diff < 0 && lightbox.index > 0) {
+                setLightbox(prev => prev && { ...prev, index: prev.index - 1 })
+              }
+            }
+          }}
         >
           <img
             src={lightbox.urls[lightbox.index]}
-            className="max-w-full max-h-full object-contain rounded-xl p-4"
+            className="max-w-full max-h-full object-contain p-4"
             onClick={e => e.stopPropagation()}
           />
-          {/* 左右箭頭 */}
+          {/* 左右箭頭（桌面版） */}
           {lightbox.index > 0 && (
             <button
               onClick={e => { e.stopPropagation(); setLightbox(prev => prev && { ...prev, index: prev.index - 1 }) }}
-              className="absolute left-4 w-10 h-10 bg-white/20 text-white rounded-full flex items-center justify-center hover:bg-white/30"
+              className="absolute left-4 w-10 h-10 bg-white/20 text-white rounded-full hidden sm:flex items-center justify-center hover:bg-white/30"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -755,7 +771,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
           {lightbox.index < lightbox.urls.length - 1 && (
             <button
               onClick={e => { e.stopPropagation(); setLightbox(prev => prev && { ...prev, index: prev.index + 1 }) }}
-              className="absolute right-4 w-10 h-10 bg-white/20 text-white rounded-full flex items-center justify-center hover:bg-white/30"
+              className="absolute right-4 w-10 h-10 bg-white/20 text-white rounded-full hidden sm:flex items-center justify-center hover:bg-white/30"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -764,15 +780,15 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
           )}
           {/* 頁數指示點 */}
           {lightbox.urls.length > 1 && (
-            <div className="absolute bottom-6 flex gap-1.5">
+            <div className="absolute bottom-8 flex gap-2">
               {lightbox.urls.map((_, i) => (
-                <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === lightbox.index ? 'bg-white' : 'bg-white/40'}`} />
+                <div key={i} className={`rounded-full transition-all ${i === lightbox.index ? 'w-4 h-1.5 bg-white' : 'w-1.5 h-1.5 bg-white/40'}`} />
               ))}
             </div>
           )}
           <button
             onClick={() => setLightbox(null)}
-            className="absolute top-4 right-4 w-9 h-9 bg-white/20 text-white rounded-full flex items-center justify-center hover:bg-white/30"
+            className="absolute top-4 right-4 w-9 h-9 bg-white/20 text-white rounded-full flex items-center justify-center"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
