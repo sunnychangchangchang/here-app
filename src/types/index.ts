@@ -14,6 +14,7 @@ export interface Post {
   content: string
   waiting_for_reply: boolean
   tags: string[]
+  image_urls: string[]
   created_at: string
   profiles?: Profile
 }
@@ -37,6 +38,7 @@ export interface Message {
   conversation_id: string
   sender_id: string
   content: string
+  image_url: string | null
   is_read: boolean
   created_at: string
 }

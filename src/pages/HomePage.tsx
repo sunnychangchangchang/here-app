@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import { useApp } from '../context/AppContext'
 import type { Post, Comment, Profile } from '../types'
 import { CommentIcon, HeartIcon, PostIcon, StatusIcon, TagIcon, UserIcon } from '../components/icons'
+import { uploadImage } from '../utils/imageUtils'
 
 interface HomePageProps {
   onTagClick?: (tag: string) => void
@@ -33,6 +34,11 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
   const [scrollToLastCommentPostId, setScrollToLastCommentPostId] = useState<string | null>(null)
   const [postLikes, setPostLikes] = useState<Record<string, number>>({})
   const [userLikedPosts, setUserLikedPosts] = useState<Set<string>>(new Set())
+  const [selectedImages, setSelectedImages] = useState<File[]>([])
+  const [imagePreviews, setImagePreviews] = useState<string[]>([])
+  const [uploadingImages, setUploadingImages] = useState(false)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
   const [commentLikes, setCommentLikes] = useState<Record<string, number>>({})
   const [userLikedComments, setUserLikedComments] = useState<Set<string>>(new Set())
 
@@ -254,19 +260,50 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
     setTags(prev => prev.filter(t => t !== tag))
   }
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    const remaining = 3 - selectedImages.length
+    const toAdd = files.slice(0, remaining)
+    setSelectedImages(prev => [...prev, ...toAdd])
+    toAdd.forEach(file => {
+      const reader = new FileReader()
+      reader.onload = ev => setImagePreviews(prev => [...prev, ev.target!.result as string])
+      reader.readAsDataURL(file)
+    })
+    e.target.value = ''
+  }
+
+  const removeSelectedImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index))
+    setImagePreviews(prev => prev.filter((_, i) => i !== index))
+  }
+
   const submitPost = async () => {
-    if (!newPost.trim() || !profile) return
+    if ((!newPost.trim() && selectedImages.length === 0) || !profile) return
     setLoading(true)
+    setUploadingImages(selectedImages.length > 0)
+
+    let image_urls: string[] = []
+    if (selectedImages.length > 0) {
+      image_urls = await Promise.all(
+        selectedImages.map(file => uploadImage(file, 'post-images', profile.id))
+      )
+    }
+
     await supabase.from('posts').insert({
       user_id: profile.id,
       content: newPost.trim(),
       waiting_for_reply: waitingForReply,
-      tags
+      tags,
+      image_urls
     })
     setNewPost('')
     setWaitingForReply(false)
     setTags([])
     setTagInput('')
+    setSelectedImages([])
+    setImagePreviews([])
+    setUploadingImages(false)
     setLoading(false)
   }
 
@@ -458,6 +495,32 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
           className="w-full text-sm text-gray-800 placeholder-gray-400 resize-none focus:outline-none"
           rows={3}
         />
+
+        {/* 圖片預覽 */}
+        {imagePreviews.length > 0 && (
+          <div className="flex gap-2 mt-3">
+            {imagePreviews.map((src, i) => (
+              <div key={i} className="relative w-20 h-20 flex-shrink-0">
+                <img src={src} className="w-full h-full object-cover rounded-xl" />
+                <button
+                  onClick={() => removeSelectedImage(i)}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gray-800 text-white rounded-full text-xs flex items-center justify-center hover:bg-gray-600"
+                >×</button>
+              </div>
+            ))}
+            {selectedImages.length < 3 && (
+              <button
+                onClick={() => imageInputRef.current?.click()}
+                className="w-20 h-20 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center text-gray-400 hover:border-gray-300 flex-shrink-0"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="mt-2">
           <div className="flex flex-wrap gap-1 mb-1">
             {tags.map(tag => (
@@ -479,23 +542,44 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
           )}
         </div>
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
-          <button
-            onClick={() => setWaitingForReply(!waitingForReply)}
-            className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-full transition-all ${
-              waitingForReply ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-            }`}
-          >
-            <StatusIcon active={waitingForReply} className="w-3.5 h-3.5" />
-            在線等回覆
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setWaitingForReply(!waitingForReply)}
+              className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-full transition-all ${
+                waitingForReply ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+              }`}
+            >
+              <StatusIcon active={waitingForReply} className="w-3.5 h-3.5" />
+              在線等回覆
+            </button>
+            {selectedImages.length === 0 && (
+              <button
+                onClick={() => imageInputRef.current?.click()}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-all"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                照片
+              </button>
+            )}
+          </div>
           <button
             onClick={submitPost}
-            disabled={loading || !newPost.trim()}
+            disabled={loading || uploadingImages || (!newPost.trim() && selectedImages.length === 0)}
             className="bg-gray-900 text-white text-xs px-4 py-1.5 rounded-full disabled:opacity-40 hover:bg-gray-700 transition-colors"
           >
-            發布
+            {uploadingImages ? '上傳中...' : '發布'}
           </button>
         </div>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={handleImageSelect}
+        />
       </div>
 
       {/* 文章列表 */}
@@ -538,7 +622,21 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
               )}
             </div>
 
-            <p className="text-sm text-gray-800 leading-relaxed mb-2">{post.content}</p>
+            {post.content && <p className="text-sm text-gray-800 leading-relaxed mb-2">{post.content}</p>}
+
+            {/* 圖片 */}
+            {post.image_urls?.length > 0 && (
+              <div className={`grid gap-1.5 mb-3 ${post.image_urls.length === 1 ? 'grid-cols-1' : post.image_urls.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                {post.image_urls.map((url, i) => (
+                  <img
+                    key={i}
+                    src={url}
+                    onClick={() => setLightboxUrl(url)}
+                    className={`w-full object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity ${post.image_urls.length === 1 ? 'max-h-72' : 'h-28'}`}
+                  />
+                ))}
+              </div>
+            )}
 
             {post.tags && post.tags.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-3">
@@ -625,6 +723,28 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
           </div>
         ))}
       </div>
+
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <img
+            src={lightboxUrl}
+            className="max-w-full max-h-full object-contain rounded-xl"
+            onClick={e => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 w-9 h-9 bg-white/20 text-white rounded-full flex items-center justify-center hover:bg-white/30"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
     </div>
   )
 }

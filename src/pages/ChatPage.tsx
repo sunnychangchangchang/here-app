@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { useApp } from '../context/AppContext'
 import type { Message } from '../types'
+import { uploadImage } from '../utils/imageUtils'
 
 interface ChatPageProps {
   conversationId: string
@@ -13,7 +14,10 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
   const { profile } = useApp()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetchMessages()
@@ -58,15 +62,26 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
       .eq('is_read', false)
   }
 
-  const sendMessage = async () => {
-    const content = input.trim()
-    if (!content || !profile) return
+  const sendMessage = async (content = input.trim(), image_url: string | null = null) => {
+    if (!content && !image_url) return
+    if (!profile) return
     setInput('')
     await supabase.from('messages').insert({
       conversation_id: conversationId,
       sender_id: profile.id,
-      content
+      content: content || '',
+      image_url
     })
+  }
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !profile) return
+    e.target.value = ''
+    setUploadingImage(true)
+    const url = await uploadImage(file, 'post-images', `dm/${profile.id}`)
+    await sendMessage('', url)
+    setUploadingImage(false)
   }
 
   const formatTime = (dateStr: string) => {
@@ -78,7 +93,6 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
       : d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   }
 
-  // Group messages by sender for visual batching
   const groupedMessages = messages.map((msg, i) => ({
     ...msg,
     isFirst: i === 0 || messages[i - 1].sender_id !== msg.sender_id,
@@ -87,12 +101,9 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
 
   return (
     <>
-      {/* Messages */}
       <div className="max-w-lg mx-auto px-4 pt-4 pb-36">
         {messages.length === 0 && (
-          <div className="text-center text-gray-400 text-sm py-12">
-            傳一則訊息開始對話吧
-          </div>
+          <div className="text-center text-gray-400 text-sm py-12">傳一則訊息開始對話吧</div>
         )}
 
         {groupedMessages.map(msg => {
@@ -103,17 +114,29 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
               className={`flex ${isMine ? 'justify-end' : 'justify-start'} ${msg.isFirst ? 'mt-4' : 'mt-0.5'}`}
             >
               <div className={`max-w-[72%] ${isMine ? 'items-end' : 'items-start'} flex flex-col`}>
-                <div className={`px-4 py-2.5 text-sm leading-relaxed ${
-                  isMine
-                    ? `bg-gray-900 text-white ${msg.isFirst ? 'rounded-2xl rounded-br-sm' : msg.isLast ? 'rounded-2xl rounded-tr-sm' : 'rounded-lg'}`
-                    : `bg-gray-100 text-gray-800 ${msg.isFirst ? 'rounded-2xl rounded-bl-sm' : msg.isLast ? 'rounded-2xl rounded-tl-sm' : 'rounded-lg'}`
-                }`}>
-                  {msg.content}
-                </div>
+                {/* 圖片訊息 */}
+                {msg.image_url && (
+                  <img
+                    src={msg.image_url}
+                    onClick={() => setLightboxUrl(msg.image_url!)}
+                    className={`max-w-full object-cover cursor-pointer hover:opacity-90 transition-opacity ${
+                      isMine ? 'rounded-2xl rounded-br-sm' : 'rounded-2xl rounded-bl-sm'
+                    }`}
+                    style={{ maxHeight: '240px' }}
+                  />
+                )}
+                {/* 文字訊息 */}
+                {msg.content && (
+                  <div className={`px-4 py-2.5 text-sm leading-relaxed ${
+                    isMine
+                      ? `bg-gray-900 text-white ${msg.isFirst ? 'rounded-2xl rounded-br-sm' : msg.isLast ? 'rounded-2xl rounded-tr-sm' : 'rounded-lg'}`
+                      : `bg-gray-100 text-gray-800 ${msg.isFirst ? 'rounded-2xl rounded-bl-sm' : msg.isLast ? 'rounded-2xl rounded-tl-sm' : 'rounded-lg'}`
+                  }`}>
+                    {msg.content}
+                  </div>
+                )}
                 {msg.isLast && (
-                  <span className="text-xs text-gray-400 mt-1 px-1">
-                    {formatTime(msg.created_at)}
-                  </span>
+                  <span className="text-xs text-gray-400 mt-1 px-1">{formatTime(msg.created_at)}</span>
                 )}
               </div>
             </div>
@@ -123,9 +146,22 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input bar — above bottom nav */}
+      {/* Input bar */}
       <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3">
         <div className="max-w-lg mx-auto flex gap-2 items-center">
+          <button
+            onClick={() => imageInputRef.current?.click()}
+            disabled={uploadingImage}
+            className="w-9 h-9 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center flex-shrink-0 hover:bg-gray-200 transition-colors disabled:opacity-40"
+          >
+            {uploadingImage ? (
+              <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            )}
+          </button>
           <input
             value={input}
             onChange={e => setInput(e.target.value)}
@@ -134,7 +170,7 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
             className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-sm focus:outline-none"
           />
           <button
-            onClick={sendMessage}
+            onClick={() => sendMessage()}
             disabled={!input.trim()}
             className="w-9 h-9 bg-gray-900 text-white rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity"
           >
@@ -143,7 +179,30 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
             </svg>
           </button>
         </div>
+        <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
       </div>
+
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <img
+            src={lightboxUrl}
+            className="max-w-full max-h-full object-contain rounded-xl"
+            onClick={e => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 w-9 h-9 bg-white/20 text-white rounded-full flex items-center justify-center hover:bg-white/30"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
     </>
   )
 }
