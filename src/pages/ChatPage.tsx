@@ -9,7 +9,7 @@ interface ChatPageProps {
   onUserClick?: (userId: string) => void
 }
 
-export default function ChatPage({ conversationId, otherUserId, onUserClick }: ChatPageProps) {
+export default function ChatPage({ conversationId }: ChatPageProps) {
   const { profile } = useApp()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
