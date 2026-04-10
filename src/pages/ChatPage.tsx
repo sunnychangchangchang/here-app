@@ -8,13 +8,11 @@ interface ChatPageProps {
   conversationId: string
   otherUserId: string
   onUserClick?: (userId: string) => void
+  headerH?: number
+  tabbarH?: number
 }
 
-// App header 高度 + tab bar 高度（px）
-const HEADER_H = 54
-const TABBAR_H = 64
-
-export default function ChatPage({ conversationId }: ChatPageProps) {
+export default function ChatPage({ conversationId, headerH = 54, tabbarH = 64 }: ChatPageProps) {
   const { profile } = useApp()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -132,8 +130,7 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
   }))
 
   const inputBarH = 64
-  // input bar 底部位置：tab bar 高度 + 鍵盤高度
-  const inputBottom = TABBAR_H + keyboardH
+  const inputBottom = tabbarH + keyboardH
 
   return (
     <>
@@ -142,7 +139,7 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
         ref={messagesRef}
         className="fixed left-0 right-0 overflow-y-auto"
         style={{
-          top: HEADER_H,
+          top: headerH,
           bottom: inputBottom + inputBarH,
         }}
       >

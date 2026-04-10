@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { AppProvider, useApp } from './context/AppContext'
 import AuthPage from './pages/AuthPage'
 import HomePage from './pages/HomePage'
@@ -28,6 +28,15 @@ function AppContent() {
   const [highlightPostId, setHighlightPostId] = useState<string | null>(null)
   const [viewStack, setViewStack] = useState<AppView[]>([{ type: 'tabs' }])
   const [homeTriggerSearch, setHomeTriggerSearch] = useState<{ query: string; type: 'posts' | 'tags' | 'users' } | null>(null)
+  const [headerH, setHeaderH] = useState(54)
+  const [tabbarH, setTabbarH] = useState(64)
+  const headerRef = useRef<HTMLDivElement>(null)
+  const tabbarRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (headerRef.current) setHeaderH(headerRef.current.offsetHeight)
+    if (tabbarRef.current) setTabbarH(tabbarRef.current.offsetHeight)
+  }, [isLoggedIn])
 
   const currentView = viewStack[viewStack.length - 1]
   const isOnTabs = currentView.type === 'tabs'
@@ -119,7 +128,7 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 頂部標題 */}
-      <div className="bg-white border-b border-gray-100 sticky top-0 z-10">
+      <div ref={headerRef} className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 py-3 relative flex items-center justify-center min-h-[48px]">
           {!isOnTabs ? (
             <>
@@ -179,6 +188,8 @@ function AppContent() {
             conversationId={currentView.conversationId}
             otherUserId={currentView.otherUserId}
             onUserClick={handleUserClick}
+            headerH={headerH}
+            tabbarH={tabbarH}
           />
         )}
         {isOnTabs && (
@@ -208,28 +219,28 @@ function AppContent() {
       </div>
 
       {/* 底部導航 */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-gray-100" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="max-w-lg mx-auto px-2 py-1 flex justify-around">
+      <div ref={tabbarRef} className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-gray-100" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="max-w-lg mx-auto px-2 py-2 flex justify-around">
           {([
-            { tab: 'home' as Tab, icon: <HomeIcon className="w-5 h-5" />, label: '首頁' },
-            { tab: 'plaza' as Tab, icon: <PlazaIcon className="w-5 h-5" />, label: '廣場' },
-            { tab: 'messages' as Tab, icon: <MessageIcon className="w-5 h-5" />, label: '私訊', badge: unreadDmCount },
-            { tab: 'notifications' as Tab, icon: <BellIcon className="w-5 h-5" />, label: '通知', badge: unreadCount },
-            { tab: 'profile' as Tab, icon: <UserIcon className="w-5 h-5" />, label: '我的' },
+            { tab: 'home' as Tab, icon: <HomeIcon className="w-6 h-6" />, label: '首頁' },
+            { tab: 'plaza' as Tab, icon: <PlazaIcon className="w-6 h-6" />, label: '廣場' },
+            { tab: 'messages' as Tab, icon: <MessageIcon className="w-6 h-6" />, label: '私訊', badge: unreadDmCount },
+            { tab: 'notifications' as Tab, icon: <BellIcon className="w-6 h-6" />, label: '通知', badge: unreadCount },
+            { tab: 'profile' as Tab, icon: <UserIcon className="w-6 h-6" />, label: '我的' },
           ] as { tab: Tab; icon: React.ReactNode; label: string; badge?: number }[]).map(({ tab, icon, label, badge }) => {
             const active = activeTab === tab && isOnTabs
             return (
               <button
                 key={tab}
                 onClick={() => handleTabChange(tab)}
-                className="relative flex flex-col items-center gap-0.5 px-4 py-2 min-w-[56px] active:scale-95 transition-transform"
+                className="relative flex flex-col items-center gap-1 px-4 py-1.5 min-w-[56px] active:scale-95 transition-transform"
               >
                 <div className={`p-1.5 rounded-xl transition-all duration-200 ${active ? 'bg-gray-100' : ''}`}>
                   <span className={active ? 'text-gray-900' : 'text-gray-400'}>{icon}</span>
                 </div>
-                <span className={`text-[10px] font-medium transition-colors ${active ? 'text-gray-900' : 'text-gray-400'}`}>{label}</span>
+                <span className={`text-xs font-medium transition-colors ${active ? 'text-gray-900' : 'text-gray-400'}`}>{label}</span>
                 {badge != null && badge > 0 && (
-                  <span className="absolute top-1.5 right-2.5 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-medium">
+                  <span className="absolute top-1 right-2.5 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-medium">
                     {badge > 9 ? '9+' : badge}
                   </span>
                 )}
