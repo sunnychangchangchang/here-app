@@ -10,33 +10,29 @@ interface ChatPageProps {
   onUserClick?: (userId: string) => void
 }
 
+// App header 高度 + tab bar 高度（px）
+const HEADER_H = 54
+const TABBAR_H = 64
+
 export default function ChatPage({ conversationId }: ChatPageProps) {
   const { profile } = useApp()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
-  const [inputBottom, setInputBottom] = useState(0)
+  const [keyboardH, setKeyboardH] = useState(0)
   const bottomRef = useRef<HTMLDivElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const messagesRef = useRef<HTMLDivElement>(null)
 
-  // 偵測鍵盤高度，讓 input 貼著鍵盤
+  // visualViewport 偵測鍵盤高度
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
-
     const update = () => {
-      const keyboardHeight = window.innerHeight - vv.height - vv.offsetTop
-      setInputBottom(Math.max(0, keyboardHeight))
-      // 鍵盤展開時自動捲到底
-      if (keyboardHeight > 50) {
-        setTimeout(() => {
-          bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-        }, 50)
-      }
+      const kh = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      setKeyboardH(kh)
     }
-
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)
     return () => {
@@ -44,6 +40,14 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
       vv.removeEventListener('scroll', update)
     }
   }, [])
+
+  // 鍵盤開關時滾到底
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, 80)
+    return () => clearTimeout(timer)
+  }, [keyboardH])
 
   useEffect(() => {
     fetchMessages()
@@ -125,64 +129,69 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
     isLast: i === messages.length - 1 || messages[i + 1].sender_id !== msg.sender_id,
   }))
 
-  // input bar 高度約 64px + 底部導航 64px
-  const inputBarHeight = 64
-  const tabBarHeight = 64
+  const inputBarH = 64
+  // input bar 底部位置：tab bar 高度 + 鍵盤高度
+  const inputBottom = TABBAR_H + keyboardH
 
   return (
     <>
-      {/* 訊息列表 */}
+      {/* 訊息區域 — fixed，上方留 header，下方留 input bar */}
       <div
-        ref={scrollAreaRef}
-        className="max-w-lg mx-auto px-4 pt-4"
-        style={{ paddingBottom: `${inputBarHeight + tabBarHeight + inputBottom + 16}px` }}
+        ref={messagesRef}
+        className="fixed left-0 right-0 overflow-y-auto"
+        style={{
+          top: HEADER_H,
+          bottom: inputBottom + inputBarH,
+        }}
       >
-        {messages.length === 0 && (
-          <div className="text-center text-gray-400 text-sm py-12">傳一則訊息開始對話吧</div>
-        )}
+        <div className="max-w-lg mx-auto px-4 pt-2 pb-2">
+          {messages.length === 0 && (
+            <div className="text-center text-gray-400 text-sm py-12">傳一則訊息開始對話吧</div>
+          )}
 
-        {groupedMessages.map(msg => {
-          const isMine = msg.sender_id === profile?.id
-          return (
-            <div
-              key={msg.id}
-              className={`flex ${isMine ? 'justify-end' : 'justify-start'} ${msg.isFirst ? 'mt-4' : 'mt-0.5'}`}
-            >
-              <div className={`max-w-[72%] ${isMine ? 'items-end' : 'items-start'} flex flex-col`}>
-                {msg.image_url && (
-                  <img
-                    src={msg.image_url}
-                    onClick={() => setLightboxUrl(msg.image_url!)}
-                    className={`max-w-full object-cover cursor-pointer active:opacity-80 transition-opacity ${
-                      isMine ? 'rounded-2xl rounded-br-sm' : 'rounded-2xl rounded-bl-sm'
-                    }`}
-                    style={{ maxHeight: '240px' }}
-                  />
-                )}
-                {msg.content && (
-                  <div className={`px-4 py-2.5 text-sm leading-relaxed ${
-                    isMine
-                      ? `bg-gray-900 text-white ${msg.isFirst ? 'rounded-2xl rounded-br-sm' : msg.isLast ? 'rounded-2xl rounded-tr-sm' : 'rounded-lg'}`
-                      : `bg-gray-100 text-gray-800 ${msg.isFirst ? 'rounded-2xl rounded-bl-sm' : msg.isLast ? 'rounded-2xl rounded-tl-sm' : 'rounded-lg'}`
-                  }`}>
-                    {msg.content}
-                  </div>
-                )}
-                {msg.isLast && (
-                  <span className="text-xs text-gray-400 mt-1 px-1">{formatTime(msg.created_at)}</span>
-                )}
+          {groupedMessages.map(msg => {
+            const isMine = msg.sender_id === profile?.id
+            return (
+              <div
+                key={msg.id}
+                className={`flex ${isMine ? 'justify-end' : 'justify-start'} ${msg.isFirst ? 'mt-4' : 'mt-0.5'}`}
+              >
+                <div className={`max-w-[72%] ${isMine ? 'items-end' : 'items-start'} flex flex-col`}>
+                  {msg.image_url && (
+                    <img
+                      src={msg.image_url}
+                      onClick={() => setLightboxUrl(msg.image_url!)}
+                      className={`max-w-full object-cover cursor-pointer active:opacity-80 transition-opacity ${
+                        isMine ? 'rounded-2xl rounded-br-sm' : 'rounded-2xl rounded-bl-sm'
+                      }`}
+                      style={{ maxHeight: '240px' }}
+                    />
+                  )}
+                  {msg.content && (
+                    <div className={`px-4 py-2.5 text-sm leading-relaxed ${
+                      isMine
+                        ? `bg-gray-900 text-white ${msg.isFirst ? 'rounded-2xl rounded-br-sm' : msg.isLast ? 'rounded-2xl rounded-tr-sm' : 'rounded-lg'}`
+                        : `bg-gray-100 text-gray-800 ${msg.isFirst ? 'rounded-2xl rounded-bl-sm' : msg.isLast ? 'rounded-2xl rounded-tl-sm' : 'rounded-lg'}`
+                    }`}>
+                      {msg.content}
+                    </div>
+                  )}
+                  {msg.isLast && (
+                    <span className="text-xs text-gray-400 mt-1 px-1">{formatTime(msg.created_at)}</span>
+                  )}
+                </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })}
 
-        <div ref={bottomRef} />
+          <div ref={bottomRef} />
+        </div>
       </div>
 
-      {/* Input bar — 動態跟著鍵盤走 */}
+      {/* Input bar */}
       <div
-        className="fixed left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-20 transition-none"
-        style={{ bottom: `${tabBarHeight + inputBottom}px` }}
+        className="fixed left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 z-20"
+        style={{ bottom: inputBottom }}
       >
         <div className="max-w-lg mx-auto flex gap-2 items-center">
           <button
@@ -203,12 +212,13 @@ export default function ChatPage({ conversationId }: ChatPageProps) {
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && sendMessage()}
             placeholder="傳訊息..."
-            className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-sm focus:outline-none"
+            style={{ fontSize: '16px' }}
+            className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 focus:outline-none"
           />
           <button
             onClick={() => sendMessage()}
             disabled={!input.trim()}
-            className="w-9 h-9 bg-gray-900 text-white rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all"
+            className="w-9 h-9 bg-gray-900 text-white rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 active:scale-95 transition-transform"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />

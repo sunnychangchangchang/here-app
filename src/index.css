@@ -4,6 +4,11 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-body {
-  overscroll-behavior-y: none;
+html, body {
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+#root {
+  height: 100%;
 }
