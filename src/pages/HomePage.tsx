@@ -37,7 +37,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
   const [selectedImages, setSelectedImages] = useState<File[]>([])
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
   const [uploadingImages, setUploadingImages] = useState(false)
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const [commentLikes, setCommentLikes] = useState<Record<string, number>>({})
   const [userLikedComments, setUserLikedComments] = useState<Set<string>>(new Set())
@@ -630,7 +630,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
                 {post.image_urls.map((url, i) => (
                   <div
                     key={i}
-                    onClick={() => setLightboxUrl(url)}
+                    onClick={() => setLightbox({ urls: post.image_urls, index: i })}
                     className={`relative overflow-hidden rounded-xl cursor-pointer group flex-shrink-0 ${
                       post.image_urls.length === 1 ? 'w-48 h-48' : 'w-24 h-24'
                     }`}
@@ -731,18 +731,47 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
       </div>
 
       {/* Lightbox */}
-      {lightboxUrl && (
+      {lightbox && (
         <div
-          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
-          onClick={() => setLightboxUrl(null)}
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center"
+          onClick={() => setLightbox(null)}
         >
           <img
-            src={lightboxUrl}
-            className="max-w-full max-h-full object-contain rounded-xl"
+            src={lightbox.urls[lightbox.index]}
+            className="max-w-full max-h-full object-contain rounded-xl p-4"
             onClick={e => e.stopPropagation()}
           />
+          {/* 左右箭頭 */}
+          {lightbox.index > 0 && (
+            <button
+              onClick={e => { e.stopPropagation(); setLightbox(prev => prev && { ...prev, index: prev.index - 1 }) }}
+              className="absolute left-4 w-10 h-10 bg-white/20 text-white rounded-full flex items-center justify-center hover:bg-white/30"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+          {lightbox.index < lightbox.urls.length - 1 && (
+            <button
+              onClick={e => { e.stopPropagation(); setLightbox(prev => prev && { ...prev, index: prev.index + 1 }) }}
+              className="absolute right-4 w-10 h-10 bg-white/20 text-white rounded-full flex items-center justify-center hover:bg-white/30"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
+          {/* 頁數指示點 */}
+          {lightbox.urls.length > 1 && (
+            <div className="absolute bottom-6 flex gap-1.5">
+              {lightbox.urls.map((_, i) => (
+                <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === lightbox.index ? 'bg-white' : 'bg-white/40'}`} />
+              ))}
+            </div>
+          )}
           <button
-            onClick={() => setLightboxUrl(null)}
+            onClick={() => setLightbox(null)}
             className="absolute top-4 right-4 w-9 h-9 bg-white/20 text-white rounded-full flex items-center justify-center hover:bg-white/30"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
