@@ -5,10 +5,11 @@ import type { Post, Comment } from '../types'
 
 interface HomePageProps {
   onTagClick?: (tag: string) => void
+  onUserClick?: (userId: string) => void
   highlightPostId?: string | null
 }
 
-export default function HomePage({ onTagClick, highlightPostId }: HomePageProps) {
+export default function HomePage({ onTagClick, onUserClick, highlightPostId }: HomePageProps) {
   const { profile } = useApp()
   const [posts, setPosts] = useState<Post[]>([])
   const [newPost, setNewPost] = useState('')
@@ -322,12 +323,18 @@ export default function HomePage({ onTagClick, highlightPostId }: HomePageProps)
           }`}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium text-gray-600">
+                <div
+                  className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium text-gray-600 cursor-pointer hover:bg-gray-200"
+                  onClick={() => post.user_id !== profile?.id && onUserClick?.(post.user_id)}
+                >
                   {post.profiles?.username?.[0]?.toUpperCase()}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900">{post.profiles?.username}</span>
+                    <span
+                      className="text-sm font-medium text-gray-900 cursor-pointer hover:underline"
+                      onClick={() => post.user_id !== profile?.id && onUserClick?.(post.user_id)}
+                    >{post.profiles?.username}</span>
                     {post.profiles?.is_available && (
                       <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">有空</span>
                     )}
@@ -379,12 +386,18 @@ export default function HomePage({ onTagClick, highlightPostId }: HomePageProps)
                   )}
                   {(comments[post.id] || []).map(comment => (
                     <div key={comment.id} id={`comment-${comment.id}`} className="flex gap-2">
-                      <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs font-medium text-gray-600 flex-shrink-0">
+                      <div
+                        className={`w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs font-medium text-gray-600 flex-shrink-0 ${comment.user_id !== profile?.id ? 'cursor-pointer hover:bg-gray-200' : ''}`}
+                        onClick={() => comment.user_id !== profile?.id && onUserClick?.(comment.user_id)}
+                      >
                         {comment.profiles?.username?.[0]?.toUpperCase()}
                       </div>
                       <div className="bg-gray-50 rounded-xl px-3 py-2 flex-1">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-gray-700">{comment.profiles?.username}</span>
+                          <span
+                            className={`text-xs font-medium text-gray-700 ${comment.user_id !== profile?.id ? 'cursor-pointer hover:text-gray-900' : ''}`}
+                            onClick={() => comment.user_id !== profile?.id && onUserClick?.(comment.user_id)}
+                          >{comment.profiles?.username}</span>
                           {comment.user_id === profile?.id && (
                             <button
                               onClick={() => deleteComment(comment.id, post.id)}

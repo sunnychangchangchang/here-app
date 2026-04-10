@@ -7,9 +7,10 @@ type SearchTab = 'posts' | 'tags' | 'users'
 interface SearchPageProps {
   initialQuery?: string
   initialType?: 'posts' | 'tags' | 'users'
+  onUserClick?: (userId: string) => void
 }
 
-export default function SearchPage({ initialQuery = '', initialType = 'posts' }: SearchPageProps) {
+export default function SearchPage({ initialQuery = '', initialType = 'posts', onUserClick }: SearchPageProps) {
   const [query, setQuery] = useState(initialQuery)
   const [activeTab, setActiveTab] = useState<SearchTab>(initialType)
   const [posts, setPosts] = useState<Post[]>([])
@@ -114,12 +115,18 @@ export default function SearchPage({ initialQuery = '', initialType = 'posts' }:
           {posts.map(post => (
             <div key={post.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium text-gray-600">
+                <div
+                  className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium text-gray-600 cursor-pointer hover:bg-gray-200"
+                  onClick={() => post.user_id && onUserClick?.(post.user_id)}
+                >
                   {post.profiles?.username?.[0]?.toUpperCase()}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900">{post.profiles?.username}</span>
+                    <span
+                      className="text-sm font-medium text-gray-900 cursor-pointer hover:underline"
+                      onClick={() => post.user_id && onUserClick?.(post.user_id)}
+                    >{post.profiles?.username}</span>
                     {post.profiles?.is_available && (
                       <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">有空</span>
                     )}
@@ -147,7 +154,11 @@ export default function SearchPage({ initialQuery = '', initialType = 'posts' }:
             <div className="text-center text-gray-400 text-sm py-8">沒有找到相關用戶</div>
           )}
           {users.map(user => (
-            <div key={user.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div
+              key={user.id}
+              onClick={() => onUserClick?.(user.id)}
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 cursor-pointer hover:bg-gray-50"
+            >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-base font-medium text-gray-600">
                   {user.username[0].toUpperCase()}

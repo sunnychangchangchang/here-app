@@ -1,0 +1,291 @@
+import { useState, useEffect } from 'react'
+import { supabase } from '../supabase'
+import { useApp } from '../context/AppContext'
+import type { Post, Comment, Profile } from '../types'
+
+const LANGUAGES = [
+  { code: 'zh-TW', label: '繁中', flag: '🇹🇼' },
+  { code: 'zh-CN', label: '簡中', flag: '🇨🇳' },
+  { code: 'en', label: 'EN', flag: '🇺🇸' },
+  { code: 'ja', label: '日本語', flag: '🇯🇵' },
+  { code: 'ko', label: '한국어', flag: '🇰🇷' },
+  { code: 'es', label: 'ES', flag: '🇪🇸' },
+  { code: 'fr', label: 'FR', flag: '🇫🇷' },
+]
+
+interface UserProfilePageProps {
+  userId: string
+  onTagClick?: (tag: string) => void
+  onUserClick?: (userId: string) => void
+}
+
+export default function UserProfilePage({ userId, onTagClick, onUserClick }: UserProfilePageProps) {
+  const { profile } = useApp()
+  const [userProfile, setUserProfile] = useState<Profile | null>(null)
+  const [posts, setPosts] = useState<Post[]>([])
+  const [expandedPost, setExpandedPost] = useState<string | null>(null)
+  const [comments, setComments] = useState<Record<string, Comment[]>>({})
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
+  const [newComment, setNewComment] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    fetchUserProfile()
+    fetchPosts()
+  }, [userId])
+
+  const fetchUserProfile = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+    if (data) setUserProfile(data)
+  }
+
+  const fetchPosts = async () => {
+    const { data } = await supabase
+      .from('posts')
+      .select('*, profiles(username, language, is_available)')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+    if (data) {
+      setPosts(data)
+      data.forEach(post => fetchCommentCount(post.id))
+    }
+  }
+
+  const fetchCommentCount = async (postId: string) => {
+    const { count } = await supabase
+      .from('comments')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', postId)
+    setCommentCounts(prev => ({ ...prev, [postId]: count || 0 }))
+  }
+
+  const fetchComments = async (postId: string) => {
+    const { data } = await supabase
+      .from('comments')
+      .select('*, profiles(username)')
+      .eq('post_id', postId)
+      .order('created_at', { ascending: true })
+    if (data) setComments(prev => ({ ...prev, [postId]: data }))
+  }
+
+  const toggleComments = (postId: string) => {
+    if (expandedPost === postId) {
+      setExpandedPost(null)
+    } else {
+      setExpandedPost(postId)
+      fetchComments(postId)
+    }
+  }
+
+  const deleteComment = async (commentId: string, postId: string) => {
+    if (!profile) return
+    setComments(prev => ({
+      ...prev,
+      [postId]: (prev[postId] || []).filter(c => c.id !== commentId)
+    }))
+    setCommentCounts(prev => ({ ...prev, [postId]: Math.max((prev[postId] || 1) - 1, 0) }))
+    await supabase.from('comments').delete().eq('id', commentId).eq('user_id', profile.id)
+  }
+
+  const submitComment = async (postId: string) => {
+    const content = newComment[postId]?.trim()
+    if (!content || !profile) return
+
+    await supabase.from('comments').insert({
+      post_id: postId,
+      user_id: profile.id,
+      content
+    })
+    setNewComment(prev => ({ ...prev, [postId]: '' }))
+
+    const post = posts.find(p => p.id === postId)
+    if (!post || post.user_id === profile.id) return
+
+    const { data: allComments } = await supabase
+      .from('comments')
+      .select('user_id, profiles(username)')
+      .eq('post_id', postId)
+      .neq('user_id', post.user_id)
+
+    const seen = new Set<string>()
+    const uniqueCommenters: string[] = []
+    for (const c of allComments || []) {
+      const username = (c.profiles as any)?.username
+      if (username && !seen.has(username)) {
+        seen.add(username)
+        uniqueCommenters.push(username)
+      }
+    }
+
+    const preview = post.content.length > 20 ? post.content.slice(0, 20) + '...' : post.content
+    const message = uniqueCommenters.length <= 3
+      ? `${uniqueCommenters.join('、')} 留言了你的文章「${preview}」`
+      : `${uniqueCommenters.slice(0, 3).join('、')} 和其他人留言了你的文章「${preview}」`
+
+    const { data: existing } = await supabase
+      .from('notifications')
+      .select('id')
+      .eq('user_id', post.user_id)
+      .eq('post_id', postId)
+      .eq('type', 'comment')
+      .eq('is_read', false)
+      .maybeSingle()
+
+    if (existing) {
+      await supabase.from('notifications').update({ message }).eq('id', existing.id)
+    } else {
+      await supabase.from('notifications').insert({
+        user_id: post.user_id,
+        type: 'comment',
+        message,
+        post_id: postId
+      })
+    }
+  }
+
+  const getLanguageLabel = (code: string) => {
+    const lang = LANGUAGES.find(l => l.code === code)
+    return lang ? `${lang.flag} ${lang.label}` : code
+  }
+
+  const formatTime = (dateStr: string) => {
+    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
+    if (diff < 60) return '剛剛'
+    if (diff < 3600) return `${Math.floor(diff / 60)} 分鐘前`
+    if (diff < 86400) return `${Math.floor(diff / 3600)} 小時前`
+    return `${Math.floor(diff / 86400)} 天前`
+  }
+
+  return (
+    <div className="max-w-lg mx-auto px-4 py-6">
+      {/* 用戶資料 */}
+      {userProfile && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-2xl font-medium text-gray-600">
+              {userProfile.username[0].toUpperCase()}
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg font-semibold text-gray-900">{userProfile.username}</span>
+                {userProfile.is_available && (
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">🟢 有空</span>
+                )}
+              </div>
+              <span className="text-xs text-gray-400">{getLanguageLabel(userProfile.language)}</span>
+              {userProfile.bio && (
+                <p className="text-sm text-gray-500 mt-1">{userProfile.bio}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 他的文章 */}
+      <h3 className="text-sm font-medium text-gray-500 mb-3">
+        發過的文章 · {posts.length}
+      </h3>
+
+      <div className="space-y-3">
+        {posts.length === 0 && (
+          <div className="text-center text-gray-400 text-sm py-12">還沒有發過文章</div>
+        )}
+        {posts.map(post => (
+          <div key={post.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-gray-400">{formatTime(post.created_at)}</span>
+              {post.waiting_for_reply && (
+                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">在線等</span>
+              )}
+            </div>
+
+            <p className="text-sm text-gray-800 leading-relaxed mb-2">{post.content}</p>
+
+            {post.tags && post.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-3">
+                {post.tags.map(tag => (
+                  <span
+                    key={tag}
+                    onClick={() => onTagClick?.(tag)}
+                    className="text-xs text-blue-500 hover:text-blue-700 cursor-pointer"
+                  >
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => toggleComments(post.id)}
+              className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              💬 留言 {commentCounts[post.id] ? `· ${commentCounts[post.id]}` : ''}
+            </button>
+
+            {expandedPost === post.id && (
+              <div className="mt-3 pt-3 border-t border-gray-50">
+                <div className="space-y-2 mb-3">
+                  {(comments[post.id] || []).length === 0 && (
+                    <p className="text-xs text-gray-400">還沒有留言</p>
+                  )}
+                  {(comments[post.id] || []).map(comment => (
+                    <div key={comment.id} className="flex gap-2">
+                      <div
+                        className={`w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs font-medium text-gray-600 flex-shrink-0 ${
+                          comment.user_id !== profile?.id ? 'cursor-pointer hover:bg-gray-200' : ''
+                        }`}
+                        onClick={() => comment.user_id !== profile?.id && onUserClick?.(comment.user_id)}
+                      >
+                        {comment.profiles?.username?.[0]?.toUpperCase()}
+                      </div>
+                      <div className="bg-gray-50 rounded-xl px-3 py-2 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span
+                            className={`text-xs font-medium text-gray-700 ${
+                              comment.user_id !== profile?.id ? 'cursor-pointer hover:text-gray-900' : ''
+                            }`}
+                            onClick={() => comment.user_id !== profile?.id && onUserClick?.(comment.user_id)}
+                          >
+                            {comment.profiles?.username}
+                          </span>
+                          {comment.user_id === profile?.id && (
+                            <button
+                              onClick={() => deleteComment(comment.id, post.id)}
+                              className="text-xs text-gray-300 hover:text-red-400 transition-colors"
+                            >
+                              刪除
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-600 mt-0.5">{comment.content}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newComment[post.id] || ''}
+                    onChange={e => setNewComment(prev => ({ ...prev, [post.id]: e.target.value }))}
+                    onKeyDown={e => e.key === 'Enter' && submitComment(post.id)}
+                    placeholder="留言..."
+                    className="flex-1 text-xs border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gray-200"
+                  />
+                  <button
+                    onClick={() => submitComment(post.id)}
+                    className="text-xs bg-gray-900 text-white px-3 py-2 rounded-xl"
+                  >
+                    送出
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}

@@ -13,7 +13,11 @@ const LANGUAGES = [
   { code: 'fr', label: 'FR', flag: '🇫🇷' },
 ]
 
-export default function PlazaPage() {
+interface PlazaPageProps {
+  onUserClick?: (userId: string) => void
+}
+
+export default function PlazaPage({ onUserClick }: PlazaPageProps) {
   const { profile } = useApp()
   const [availableUsers, setAvailableUsers] = useState<Profile[]>([])
   const [isAvailable, setIsAvailable] = useState(false)
@@ -107,8 +111,9 @@ export default function PlazaPage() {
           {availableUsers.map(user => (
             <div
               key={user.id}
+              onClick={() => user.id !== profile?.id && onUserClick?.(user.id)}
               className={`bg-white rounded-2xl border shadow-sm p-4 ${
-                user.id === profile?.id ? 'border-green-200' : 'border-gray-100'
+                user.id === profile?.id ? 'border-green-200' : 'border-gray-100 cursor-pointer hover:bg-gray-50'
               }`}
             >
               <div className="flex items-center gap-3">

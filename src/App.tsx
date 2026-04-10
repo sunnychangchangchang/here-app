@@ -6,6 +6,7 @@ import PlazaPage from './pages/PlazaPage'
 import ProfilePage from './pages/ProfilePage'
 import SearchPage from './pages/SearchPage'
 import NotificationPage from './pages/NotificationPage'
+import UserProfilePage from './pages/UserProfilePage'
 import { supabase } from './supabase'
 
 type Tab = 'home' | 'plaza' | 'search' | 'notifications' | 'profile'
@@ -17,6 +18,7 @@ function AppContent() {
   const [searchType, setSearchType] = useState<'posts' | 'tags' | 'users'>('posts')
   const [unreadCount, setUnreadCount] = useState(0)
   const [highlightPostId, setHighlightPostId] = useState<string | null>(null)
+  const [viewingUserId, setViewingUserId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!profile) return
@@ -48,7 +50,22 @@ function AppContent() {
   const goToSearch = (query: string, type: 'posts' | 'tags' | 'users' = 'tags') => {
     setSearchQuery(query)
     setSearchType(type)
+    setViewingUserId(null)
     setActiveTab('search')
+  }
+
+  const handleUserClick = (userId: string) => {
+    if (userId === profile?.id) {
+      setViewingUserId(null)
+      setActiveTab('profile')
+    } else {
+      setViewingUserId(userId)
+    }
+  }
+
+  const handleTabChange = (tab: Tab) => {
+    setViewingUserId(null)
+    setActiveTab(tab)
   }
 
   if (isLoading) {
@@ -68,63 +85,96 @@ function AppContent() {
       {/* 頂部標題 */}
       <div className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 py-4">
-          <h1 className="text-xl font-bold text-gray-900">
-            {activeTab === 'home' && 'Here'}
-            {activeTab === 'plaza' && '廣場'}
-            {activeTab === 'search' && '搜尋'}
-            {activeTab === 'notifications' && '通知'}
-            {activeTab === 'profile' && '我的'}
-          </h1>
+          {viewingUserId ? (
+            <button
+              onClick={() => setViewingUserId(null)}
+              className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 transition-colors"
+            >
+              ← 返回
+            </button>
+          ) : (
+            <h1 className="text-xl font-bold text-gray-900">
+              {activeTab === 'home' && 'Here'}
+              {activeTab === 'plaza' && '廣場'}
+              {activeTab === 'search' && '搜尋'}
+              {activeTab === 'notifications' && '通知'}
+              {activeTab === 'profile' && '我的'}
+            </h1>
+          )}
         </div>
       </div>
 
       {/* 頁面內容 */}
       <div className="pb-20">
-        {activeTab === 'home' && <HomePage onTagClick={(tag) => goToSearch(tag, 'tags')} highlightPostId={highlightPostId} />}            {activeTab === 'plaza' && <PlazaPage />}
-        {activeTab === 'search' && <SearchPage initialQuery={searchQuery} initialType={searchType} />}
-        {activeTab === 'notifications' && (
-          <NotificationPage onPostClick={(postId) => {
-            setHighlightPostId(postId)
-            setActiveTab('home')
-          }} />
+        {viewingUserId ? (
+          <UserProfilePage
+            userId={viewingUserId}
+            onTagClick={(tag) => goToSearch(tag, 'tags')}
+            onUserClick={handleUserClick}
+          />
+        ) : (
+          <>
+            {activeTab === 'home' && (
+              <HomePage
+                onTagClick={(tag) => goToSearch(tag, 'tags')}
+                onUserClick={handleUserClick}
+                highlightPostId={highlightPostId}
+              />
+            )}
+            {activeTab === 'plaza' && <PlazaPage onUserClick={handleUserClick} />}
+            {activeTab === 'search' && (
+              <SearchPage
+                initialQuery={searchQuery}
+                initialType={searchType}
+                onUserClick={handleUserClick}
+              />
+            )}
+            {activeTab === 'notifications' && (
+              <NotificationPage onPostClick={(postId) => {
+                setHighlightPostId(postId)
+                setViewingUserId(null)
+                setActiveTab('home')
+              }} />
+            )}
+            {activeTab === 'profile' && <ProfilePage />}
+          </>
         )}
-        {activeTab === 'profile' && <ProfilePage />}
       </div>
 
       {/* 底部導航 */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100">
         <div className="max-w-lg mx-auto px-4 py-2 flex justify-around">
           <button
-            onClick={() => setActiveTab('home')}
+            onClick={() => handleTabChange('home')}
             className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
-              activeTab === 'home' ? 'text-gray-900' : 'text-gray-400'
+              activeTab === 'home' && !viewingUserId ? 'text-gray-900' : 'text-gray-400'
             }`}
           >
             <span className="text-xl">🏠</span>
             <span className="text-xs font-medium">首頁</span>
           </button>
           <button
-            onClick={() => setActiveTab('plaza')}
+            onClick={() => handleTabChange('plaza')}
             className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
-              activeTab === 'plaza' ? 'text-gray-900' : 'text-gray-400'
+              activeTab === 'plaza' && !viewingUserId ? 'text-gray-900' : 'text-gray-400'
             }`}
           >
             <span className="text-xl">🟢</span>
             <span className="text-xs font-medium">廣場</span>
           </button>
           <button
-            onClick={() => setActiveTab('search')}
+            onClick={() => handleTabChange('search')}
             className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
-              activeTab === 'search' ? 'text-gray-900' : 'text-gray-400'
+              activeTab === 'search' && !viewingUserId ? 'text-gray-900' : 'text-gray-400'
             }`}
           >
             <span className="text-xl">🔍</span>
             <span className="text-xs font-medium">搜尋</span>
           </button>
           <button
-            onClick={() => setActiveTab('notifications')}
+            onClick={() => handleTabChange('notifications')}
             className={`relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
-              activeTab === 'notifications' ? 'text-gray-900' : 'text-gray-400'
+              activeTab === 'notifications' && !viewingUserId ? 'text-gray-900' : 'text-gray-400'
             }`}
           >
             <span className="text-xl">🔔</span>
@@ -136,9 +186,9 @@ function AppContent() {
             <span className="text-xs font-medium">通知</span>
           </button>
           <button
-            onClick={() => setActiveTab('profile')}
+            onClick={() => handleTabChange('profile')}
             className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
-              activeTab === 'profile' ? 'text-gray-900' : 'text-gray-400'
+              activeTab === 'profile' && !viewingUserId ? 'text-gray-900' : 'text-gray-400'
             }`}
           >
             <span className="text-xl">👤</span>
