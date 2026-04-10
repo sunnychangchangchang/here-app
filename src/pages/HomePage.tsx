@@ -79,25 +79,28 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
     if (!q.trim()) return
     ;(document.activeElement as HTMLElement)?.blur()
     setSearching(true)
-    if (tab === 'posts') {
-      const { data } = await supabase
-        .from('posts').select('*, profiles(username, language, is_available)')
-        .ilike('content', `%${q}%`).order('created_at', { ascending: false }).limit(20)
-      setSearchPosts(data || [])
-      setSearchUsers([])
-    } else if (tab === 'tags') {
-      const { data } = await supabase
-        .from('posts').select('*, profiles(username, language, is_available)')
-        .contains('tags', [q.replace(/^#/, '')]).order('created_at', { ascending: false }).limit(20)
-      setSearchPosts(data || [])
-      setSearchUsers([])
-    } else {
-      const { data } = await supabase
-        .from('profiles').select('*').ilike('username', `%${q}%`).limit(20)
-      setSearchUsers(data || [])
-      setSearchPosts([])
+    try {
+      if (tab === 'posts') {
+        const { data } = await supabase
+          .from('posts').select('*, profiles(username, language, is_available)')
+          .ilike('content', `%${q}%`).order('created_at', { ascending: false }).limit(20)
+        setSearchPosts(data || [])
+        setSearchUsers([])
+      } else if (tab === 'tags') {
+        const { data } = await supabase
+          .from('posts').select('*, profiles(username, language, is_available)')
+          .contains('tags', [q.replace(/^#/, '')]).order('created_at', { ascending: false }).limit(20)
+        setSearchPosts(data || [])
+        setSearchUsers([])
+      } else {
+        const { data } = await supabase
+          .from('profiles').select('*').ilike('username', `%${q}%`).limit(20)
+        setSearchUsers(data || [])
+        setSearchPosts([])
+      }
+    } finally {
+      setSearching(false)
     }
-    setSearching(false)
   }
 
   const clearSearch = () => {
@@ -144,7 +147,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
       .limit(50)
     if (data) {
       setPosts(data)
-      data.forEach(post => fetchCommentCount(post.id))
+      fetchAllCommentCounts(data.map(p => p.id))
       fetchPostLikes(data.map(p => p.id))
     }
   }
@@ -155,6 +158,20 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
       .select('*', { count: 'exact', head: true })
       .eq('post_id', postId)
     setCommentCounts(prev => ({ ...prev, [postId]: count || 0 }))
+  }
+
+  const fetchAllCommentCounts = async (postIds: string[]) => {
+    if (!postIds.length) return
+    const { data } = await supabase
+      .from('comments')
+      .select('post_id')
+      .in('post_id', postIds)
+    if (!data) return
+    const counts: Record<string, number> = {}
+    for (const row of data) {
+      counts[row.post_id] = (counts[row.post_id] || 0) + 1
+    }
+    setCommentCounts(prev => ({ ...prev, ...counts }))
   }
 
   const fetchComments = async (postId: string) => {
@@ -378,14 +395,6 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
     return `${Math.floor(diff / 86400)} 天前`
   }
 
-  const formatTimeSearch = (dateStr: string) => {
-    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
-    if (diff < 60) return '剛剛'
-    if (diff < 3600) return `${Math.floor(diff / 60)} 分鐘前`
-    if (diff < 86400) return `${Math.floor(diff / 3600)} 小時前`
-    return `${Math.floor(diff / 86400)} 天前`
-  }
-
   return (
     <div className="max-w-lg mx-auto px-4 py-6">
       {/* 搜尋列 */}
@@ -453,7 +462,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
                   className="text-sm font-medium text-gray-900 cursor-pointer hover:underline"
                   onClick={() => post.user_id !== profile?.id && onUserClick?.(post.user_id)}
                 >{post.profiles?.username}</span>
-                <span className="text-xs text-gray-400 ml-auto">{formatTimeSearch(post.created_at)}</span>
+                <span className="text-xs text-gray-400 ml-auto">{formatTime(post.created_at)}</span>
               </div>
               <p className="text-sm text-gray-800 leading-relaxed mb-2">{post.content}</p>
               {post.tags && post.tags.length > 0 && (
