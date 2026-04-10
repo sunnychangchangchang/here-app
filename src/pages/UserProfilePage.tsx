@@ -17,9 +17,10 @@ interface UserProfilePageProps {
   userId: string
   onTagClick?: (tag: string) => void
   onUserClick?: (userId: string) => void
+  onStartChat?: (conversationId: string, otherUserId: string, otherUsername: string) => void
 }
 
-export default function UserProfilePage({ userId, onTagClick, onUserClick }: UserProfilePageProps) {
+export default function UserProfilePage({ userId, onTagClick, onUserClick, onStartChat }: UserProfilePageProps) {
   const { profile } = useApp()
   const [userProfile, setUserProfile] = useState<Profile | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
@@ -28,6 +29,7 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick }: Use
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
   const [newComment, setNewComment] = useState<Record<string, string>>({})
   const [isFollowing, setIsFollowing] = useState(false)
+  const [theyFollowMe, setTheyFollowMe] = useState(false)
   const [followerCount, setFollowerCount] = useState(0)
   const [followingCount, setFollowingCount] = useState(0)
   const [postLikes, setPostLikes] = useState<Record<string, number>>({})
@@ -48,12 +50,14 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick }: Use
 
   const fetchFollowData = async () => {
     if (!profile) return
-    const [followCheck, followers, following] = await Promise.all([
+    const [iFollow, theyFollow, followers, following] = await Promise.all([
       supabase.from('follows').select('id').eq('follower_id', profile.id).eq('following_id', userId).maybeSingle(),
+      supabase.from('follows').select('id').eq('follower_id', userId).eq('following_id', profile.id).maybeSingle(),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
     ])
-    setIsFollowing(!!followCheck.data)
+    setIsFollowing(!!iFollow.data)
+    setTheyFollowMe(!!theyFollow.data)
     setFollowerCount(followers.count || 0)
     setFollowingCount(following.count || 0)
   }
@@ -67,22 +71,38 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick }: Use
       await supabase.from('follows').delete().eq('follower_id', profile.id).eq('following_id', userId)
     } else {
       await supabase.from('follows').insert({ follower_id: profile.id, following_id: userId })
-      // 發通知給對方
       await supabase.from('notifications').insert({
-        user_id: userId,
-        type: 'follow',
-        message: `${profile.username} 開始追蹤你`,
-        post_id: null
+        user_id: userId, type: 'follow', message: `${profile.username} 開始追蹤你`, post_id: null
       })
     }
   }
 
+  const openDmConversation = async () => {
+    if (!profile || !userProfile) return
+    const { data: existing } = await supabase
+      .from('conversations').select('id')
+      .or(`and(user1_id.eq.${profile.id},user2_id.eq.${userId}),and(user1_id.eq.${userId},user2_id.eq.${profile.id})`)
+      .maybeSingle()
+
+    let conversationId: string
+    if (existing) {
+      conversationId = existing.id
+    } else {
+      const { data: newConv } = await supabase
+        .from('conversations').insert({ user1_id: profile.id, user2_id: userId }).select().single()
+      if (!newConv) return
+      conversationId = newConv.id
+    }
+    onStartChat?.(conversationId, userId, userProfile.username)
+  }
+
+  const canSendDm = userProfile?.dm_permission === 'everyone' ||
+    (userProfile?.dm_permission === 'mutual' && isFollowing && theyFollowMe)
+
   const fetchPosts = async () => {
     const { data } = await supabase
-      .from('posts')
-      .select('*, profiles(username, language, is_available)')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
+      .from('posts').select('*, profiles(username, language, is_available)')
+      .eq('user_id', userId).order('created_at', { ascending: false })
     if (data) {
       setPosts(data)
       data.forEach(post => fetchCommentCount(post.id))
@@ -98,10 +118,7 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick }: Use
   const fetchComments = async (postId: string) => {
     const { data } = await supabase
       .from('comments').select('*, profiles(username)').eq('post_id', postId).order('created_at', { ascending: true })
-    if (data) {
-      setComments(prev => ({ ...prev, [postId]: data }))
-      fetchCommentLikes(data.map(c => c.id))
-    }
+    if (data) { setComments(prev => ({ ...prev, [postId]: data })); fetchCommentLikes(data.map(c => c.id)) }
   }
 
   const fetchPostLikes = async (postIds: string[]) => {
@@ -114,8 +131,7 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick }: Use
       counts[like.post_id] = (counts[like.post_id] || 0) + 1
       if (like.user_id === profile.id) liked.add(like.post_id)
     }
-    setPostLikes(counts)
-    setUserLikedPosts(liked)
+    setPostLikes(counts); setUserLikedPosts(liked)
   }
 
   const fetchCommentLikes = async (commentIds: string[]) => {
@@ -129,11 +145,7 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick }: Use
       if (like.user_id === profile.id) liked.add(like.comment_id)
     }
     setCommentLikes(prev => ({ ...prev, ...counts }))
-    setUserLikedComments(prev => {
-      const next = new Set(prev)
-      liked.forEach(id => next.add(id))
-      return next
-    })
+    setUserLikedComments(prev => { const next = new Set(prev); liked.forEach(id => next.add(id)); return next })
   }
 
   const togglePostLike = async (postId: string) => {
@@ -141,11 +153,8 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick }: Use
     const isLiked = userLikedPosts.has(postId)
     setUserLikedPosts(prev => { const next = new Set(prev); isLiked ? next.delete(postId) : next.add(postId); return next })
     setPostLikes(prev => ({ ...prev, [postId]: Math.max((prev[postId] || 0) + (isLiked ? -1 : 1), 0) }))
-    if (isLiked) {
-      await supabase.from('post_likes').delete().eq('post_id', postId).eq('user_id', profile.id)
-    } else {
-      await supabase.from('post_likes').insert({ post_id: postId, user_id: profile.id })
-    }
+    if (isLiked) { await supabase.from('post_likes').delete().eq('post_id', postId).eq('user_id', profile.id) }
+    else { await supabase.from('post_likes').insert({ post_id: postId, user_id: profile.id }) }
   }
 
   const toggleCommentLike = async (commentId: string) => {
@@ -153,20 +162,13 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick }: Use
     const isLiked = userLikedComments.has(commentId)
     setUserLikedComments(prev => { const next = new Set(prev); isLiked ? next.delete(commentId) : next.add(commentId); return next })
     setCommentLikes(prev => ({ ...prev, [commentId]: Math.max((prev[commentId] || 0) + (isLiked ? -1 : 1), 0) }))
-    if (isLiked) {
-      await supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', profile.id)
-    } else {
-      await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: profile.id })
-    }
+    if (isLiked) { await supabase.from('comment_likes').delete().eq('comment_id', commentId).eq('user_id', profile.id) }
+    else { await supabase.from('comment_likes').insert({ comment_id: commentId, user_id: profile.id }) }
   }
 
   const toggleComments = (postId: string) => {
-    if (expandedPost === postId) {
-      setExpandedPost(null)
-    } else {
-      setExpandedPost(postId)
-      fetchComments(postId)
-    }
+    if (expandedPost === postId) { setExpandedPost(null) }
+    else { setExpandedPost(postId); fetchComments(postId) }
   }
 
   const deleteComment = async (commentId: string, postId: string) => {
@@ -181,34 +183,24 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick }: Use
     if (!content || !profile) return
     await supabase.from('comments').insert({ post_id: postId, user_id: profile.id, content })
     setNewComment(prev => ({ ...prev, [postId]: '' }))
-
     const post = posts.find(p => p.id === postId)
     if (!post || post.user_id === profile.id) return
-
     const { data: allComments } = await supabase
       .from('comments').select('user_id, profiles(username)').eq('post_id', postId).neq('user_id', post.user_id)
-
-    const seen = new Set<string>()
-    const uniqueCommenters: string[] = []
+    const seen = new Set<string>(); const uniqueCommenters: string[] = []
     for (const c of allComments || []) {
       const username = (c.profiles as any)?.username
       if (username && !seen.has(username)) { seen.add(username); uniqueCommenters.push(username) }
     }
-
     const preview = post.content.length > 20 ? post.content.slice(0, 20) + '...' : post.content
     const message = uniqueCommenters.length <= 3
       ? `${uniqueCommenters.join('、')} 留言了你的文章「${preview}」`
       : `${uniqueCommenters.slice(0, 3).join('、')} 和其他人留言了你的文章「${preview}」`
-
     const { data: existing } = await supabase
-      .from('notifications').select('id')
-      .eq('user_id', post.user_id).eq('post_id', postId).eq('type', 'comment').eq('is_read', false).maybeSingle()
-
-    if (existing) {
-      await supabase.from('notifications').update({ message }).eq('id', existing.id)
-    } else {
-      await supabase.from('notifications').insert({ user_id: post.user_id, type: 'comment', message, post_id: postId })
-    }
+      .from('notifications').select('id').eq('user_id', post.user_id).eq('post_id', postId)
+      .eq('type', 'comment').eq('is_read', false).maybeSingle()
+    if (existing) { await supabase.from('notifications').update({ message }).eq('id', existing.id) }
+    else { await supabase.from('notifications').insert({ user_id: post.user_id, type: 'comment', message, post_id: postId }) }
   }
 
   const getLanguageLabel = (code: string) => {
@@ -226,61 +218,69 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick }: Use
 
   return (
     <div className="max-w-lg mx-auto px-4 py-6">
-      {/* 用戶資料 */}
+      {/* 用戶資料卡 */}
       {userProfile && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-4 flex-1">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-2xl font-medium text-gray-600 flex-shrink-0">
-                {userProfile.username[0].toUpperCase()}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
+          <div className="flex items-start gap-4 mb-4">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-2xl font-semibold text-gray-600 flex-shrink-0">
+              {userProfile.username[0].toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <span className="text-lg font-bold text-gray-900">{userProfile.username}</span>
+                {userProfile.is_available && (
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">🟢 有空</span>
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="text-lg font-semibold text-gray-900">{userProfile.username}</span>
-                  {userProfile.is_available && (
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">🟢 有空</span>
-                  )}
-                </div>
-                <span className="text-xs text-gray-400">{getLanguageLabel(userProfile.language)}</span>
-                {userProfile.bio && <p className="text-sm text-gray-500 mt-1">{userProfile.bio}</p>}
-                <div className="flex gap-4 mt-2">
-                  <span className="text-xs text-gray-500"><span className="font-medium text-gray-700">{followerCount}</span> 追蹤者</span>
-                  <span className="text-xs text-gray-500">追蹤 <span className="font-medium text-gray-700">{followingCount}</span> 人</span>
-                </div>
+              <span className="text-xs text-gray-400">{getLanguageLabel(userProfile.language)}</span>
+              {userProfile.bio && <p className="text-sm text-gray-600 mt-1.5 leading-relaxed">{userProfile.bio}</p>}
+              <div className="flex gap-4 mt-2.5">
+                <span className="text-xs text-gray-500"><span className="font-semibold text-gray-800">{followerCount}</span> 追蹤者</span>
+                <span className="text-xs text-gray-500">追蹤 <span className="font-semibold text-gray-800">{followingCount}</span> 人</span>
               </div>
             </div>
+          </div>
+
+          {/* 操作按鈕 */}
+          <div className="flex gap-2">
             <button
               onClick={toggleFollow}
-              className={`text-xs px-4 py-2 rounded-full font-medium transition-colors flex-shrink-0 ${
-                isFollowing
-                  ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  : 'bg-gray-900 text-white hover:bg-gray-700'
+              className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
+                isFollowing ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-gray-900 text-white hover:bg-gray-700'
               }`}
             >
               {isFollowing ? '已追蹤' : '追蹤'}
             </button>
+            {canSendDm && onStartChat && (
+              <button
+                onClick={openDmConversation}
+                className="flex-1 py-2 rounded-xl text-sm font-medium bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                傳訊息
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      {/* 他的文章 */}
-      <h3 className="text-sm font-medium text-gray-500 mb-3">發過的文章 · {posts.length}</h3>
+      {/* 貼文列表 */}
+      <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
+        貼文 · {posts.length}
+      </h3>
 
       <div className="space-y-3">
         {posts.length === 0 && (
-          <div className="text-center text-gray-400 text-sm py-12">還沒有發過文章</div>
+          <div className="text-center text-gray-400 text-sm py-12">還沒有發過貼文</div>
         )}
         {posts.map(post => (
           <div key={post.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-gray-400">{formatTime(post.created_at)}</span>
               {post.waiting_for_reply && (
-                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">在線等</span>
+                <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium">在線等</span>
               )}
             </div>
-
             <p className="text-sm text-gray-800 leading-relaxed mb-2">{post.content}</p>
-
             {post.tags && post.tags.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-3">
                 {post.tags.map(tag => (
@@ -290,12 +290,8 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick }: Use
                 ))}
               </div>
             )}
-
             <div className="flex items-center gap-4">
-              <button
-                onClick={() => togglePostLike(post.id)}
-                className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-400 transition-colors"
-              >
+              <button onClick={() => togglePostLike(post.id)} className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-400 transition-colors">
                 <span>{userLikedPosts.has(post.id) ? '❤️' : '🤍'}</span>
                 {postLikes[post.id] ? <span>{postLikes[post.id]}</span> : null}
               </button>
@@ -307,9 +303,7 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick }: Use
             {expandedPost === post.id && (
               <div className="mt-3 pt-3 border-t border-gray-50">
                 <div className="space-y-2 mb-3">
-                  {(comments[post.id] || []).length === 0 && (
-                    <p className="text-xs text-gray-400">還沒有留言</p>
-                  )}
+                  {(comments[post.id] || []).length === 0 && <p className="text-xs text-gray-400">還沒有留言</p>}
                   {(comments[post.id] || []).map(comment => (
                     <div key={comment.id} className="flex gap-2">
                       <div
@@ -325,17 +319,12 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick }: Use
                             onClick={() => comment.user_id !== profile?.id && onUserClick?.(comment.user_id)}
                           >{comment.profiles?.username}</span>
                           <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => toggleCommentLike(comment.id)}
-                              className="flex items-center gap-0.5 text-xs text-gray-300 hover:text-red-400 transition-colors"
-                            >
+                            <button onClick={() => toggleCommentLike(comment.id)} className="flex items-center gap-0.5 text-xs text-gray-300 hover:text-red-400 transition-colors">
                               <span>{userLikedComments.has(comment.id) ? '❤️' : '🤍'}</span>
                               {commentLikes[comment.id] ? <span>{commentLikes[comment.id]}</span> : null}
                             </button>
                             {comment.user_id === profile?.id && (
-                              <button onClick={() => deleteComment(comment.id, post.id)} className="text-xs text-gray-300 hover:text-red-400 transition-colors">
-                                刪除
-                              </button>
+                              <button onClick={() => deleteComment(comment.id, post.id)} className="text-xs text-gray-300 hover:text-red-400 transition-colors">刪除</button>
                             )}
                           </div>
                         </div>
@@ -346,16 +335,12 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick }: Use
                 </div>
                 <div className="flex gap-2">
                   <input
-                    type="text"
-                    value={newComment[post.id] || ''}
+                    type="text" value={newComment[post.id] || ''}
                     onChange={e => setNewComment(prev => ({ ...prev, [post.id]: e.target.value }))}
                     onKeyDown={e => e.key === 'Enter' && submitComment(post.id)}
-                    placeholder="留言..."
-                    className="flex-1 text-xs border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gray-200"
+                    placeholder="留言..." className="flex-1 text-xs border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-gray-200"
                   />
-                  <button onClick={() => submitComment(post.id)} className="text-xs bg-gray-900 text-white px-3 py-2 rounded-xl">
-                    送出
-                  </button>
+                  <button onClick={() => submitComment(post.id)} className="text-xs bg-gray-900 text-white px-3 py-2 rounded-xl">送出</button>
                 </div>
               </div>
             )}

@@ -7,9 +7,17 @@ import ProfilePage from './pages/ProfilePage'
 import SearchPage from './pages/SearchPage'
 import NotificationPage from './pages/NotificationPage'
 import UserProfilePage from './pages/UserProfilePage'
+import ConversationListPage from './pages/ConversationListPage'
+import ChatPage from './pages/ChatPage'
 import { supabase } from './supabase'
 
 type Tab = 'home' | 'plaza' | 'search' | 'notifications' | 'profile'
+
+type AppView =
+  | { type: 'tabs' }
+  | { type: 'userProfile'; userId: string }
+  | { type: 'conversationList' }
+  | { type: 'chat'; conversationId: string; otherUserId: string; otherUsername: string }
 
 function AppContent() {
   const { isLoggedIn, isLoading, profile } = useApp()
@@ -18,7 +26,13 @@ function AppContent() {
   const [searchType, setSearchType] = useState<'posts' | 'tags' | 'users'>('posts')
   const [unreadCount, setUnreadCount] = useState(0)
   const [highlightPostId, setHighlightPostId] = useState<string | null>(null)
-  const [viewingUserId, setViewingUserId] = useState<string | null>(null)
+  const [viewStack, setViewStack] = useState<AppView[]>([{ type: 'tabs' }])
+
+  const currentView = viewStack[viewStack.length - 1]
+  const isOnTabs = currentView.type === 'tabs'
+
+  const navigate = (view: AppView) => setViewStack(prev => [...prev, view])
+  const goBack = () => setViewStack(prev => prev.length > 1 ? prev.slice(0, -1) : prev)
 
   useEffect(() => {
     if (!profile) return
@@ -50,22 +64,26 @@ function AppContent() {
   const goToSearch = (query: string, type: 'posts' | 'tags' | 'users' = 'tags') => {
     setSearchQuery(query)
     setSearchType(type)
-    setViewingUserId(null)
+    setViewStack([{ type: 'tabs' }])
     setActiveTab('search')
+  }
+
+  const handleTabChange = (tab: Tab) => {
+    setViewStack([{ type: 'tabs' }])
+    setActiveTab(tab)
   }
 
   const handleUserClick = (userId: string) => {
     if (userId === profile?.id) {
-      setViewingUserId(null)
+      setViewStack([{ type: 'tabs' }])
       setActiveTab('profile')
     } else {
-      setViewingUserId(userId)
+      navigate({ type: 'userProfile', userId })
     }
   }
 
-  const handleTabChange = (tab: Tab) => {
-    setViewingUserId(null)
-    setActiveTab(tab)
+  const openChat = (conversationId: string, otherUserId: string, otherUsername: string) => {
+    navigate({ type: 'chat', conversationId, otherUserId, otherUsername })
   }
 
   if (isLoading) {
@@ -76,22 +94,35 @@ function AppContent() {
     )
   }
 
-  if (!isLoggedIn) {
-    return <AuthPage />
-  }
+  if (!isLoggedIn) return <AuthPage />
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 頂部標題 */}
       <div className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 py-4">
-          {viewingUserId ? (
-            <button
-              onClick={() => setViewingUserId(null)}
-              className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 transition-colors"
-            >
-              ← 返回
-            </button>
+          {!isOnTabs ? (
+            <div className="flex items-center gap-3">
+              <button
+                onClick={goBack}
+                className="flex items-center justify-center w-8 h-8 -ml-1 text-gray-500 hover:text-gray-900 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              {currentView.type === 'chat' && (
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-semibold text-gray-600">
+                    {currentView.otherUsername[0].toUpperCase()}
+                  </div>
+                  <span className="font-semibold text-gray-900">{currentView.otherUsername}</span>
+                </div>
+              )}
+              {currentView.type === 'conversationList' && (
+                <span className="text-xl font-bold text-gray-900">私訊</span>
+              )}
+            </div>
           ) : (
             <h1 className="text-xl font-bold text-gray-900">
               {activeTab === 'home' && 'Here'}
@@ -106,13 +137,27 @@ function AppContent() {
 
       {/* 頁面內容 */}
       <div className="pb-20">
-        {viewingUserId ? (
+        {currentView.type === 'userProfile' && (
           <UserProfilePage
-            userId={viewingUserId}
+            userId={currentView.userId}
             onTagClick={(tag) => goToSearch(tag, 'tags')}
             onUserClick={handleUserClick}
+            onStartChat={openChat}
           />
-        ) : (
+        )}
+        {currentView.type === 'conversationList' && (
+          <ConversationListPage
+            onStartChat={openChat}
+            onUserClick={handleUserClick}
+          />
+        )}
+        {currentView.type === 'chat' && (
+          <ChatPage
+            conversationId={currentView.conversationId}
+            otherUserId={currentView.otherUserId}
+          />
+        )}
+        {isOnTabs && (
           <>
             {activeTab === 'home' && (
               <HomePage
@@ -132,11 +177,13 @@ function AppContent() {
             {activeTab === 'notifications' && (
               <NotificationPage onPostClick={(postId) => {
                 setHighlightPostId(postId)
-                setViewingUserId(null)
+                setViewStack([{ type: 'tabs' }])
                 setActiveTab('home')
               }} />
             )}
-            {activeTab === 'profile' && <ProfilePage />}
+            {activeTab === 'profile' && (
+              <ProfilePage onOpenConversationList={() => navigate({ type: 'conversationList' })} />
+            )}
           </>
         )}
       </div>
@@ -144,37 +191,26 @@ function AppContent() {
       {/* 底部導航 */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100">
         <div className="max-w-lg mx-auto px-4 py-2 flex justify-around">
-          <button
-            onClick={() => handleTabChange('home')}
-            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
-              activeTab === 'home' && !viewingUserId ? 'text-gray-900' : 'text-gray-400'
-            }`}
-          >
-            <span className="text-xl">🏠</span>
-            <span className="text-xs font-medium">首頁</span>
-          </button>
-          <button
-            onClick={() => handleTabChange('plaza')}
-            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
-              activeTab === 'plaza' && !viewingUserId ? 'text-gray-900' : 'text-gray-400'
-            }`}
-          >
-            <span className="text-xl">🟢</span>
-            <span className="text-xs font-medium">廣場</span>
-          </button>
-          <button
-            onClick={() => handleTabChange('search')}
-            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
-              activeTab === 'search' && !viewingUserId ? 'text-gray-900' : 'text-gray-400'
-            }`}
-          >
-            <span className="text-xl">🔍</span>
-            <span className="text-xs font-medium">搜尋</span>
-          </button>
+          {([
+            { tab: 'home', icon: '🏠', label: '首頁' },
+            { tab: 'plaza', icon: '🟢', label: '廣場' },
+            { tab: 'search', icon: '🔍', label: '搜尋' },
+          ] as const).map(({ tab, icon, label }) => (
+            <button
+              key={tab}
+              onClick={() => handleTabChange(tab)}
+              className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
+                activeTab === tab && isOnTabs ? 'text-gray-900' : 'text-gray-400'
+              }`}
+            >
+              <span className="text-xl">{icon}</span>
+              <span className="text-xs font-medium">{label}</span>
+            </button>
+          ))}
           <button
             onClick={() => handleTabChange('notifications')}
             className={`relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
-              activeTab === 'notifications' && !viewingUserId ? 'text-gray-900' : 'text-gray-400'
+              activeTab === 'notifications' && isOnTabs ? 'text-gray-900' : 'text-gray-400'
             }`}
           >
             <span className="text-xl">🔔</span>
@@ -188,7 +224,7 @@ function AppContent() {
           <button
             onClick={() => handleTabChange('profile')}
             className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
-              activeTab === 'profile' && !viewingUserId ? 'text-gray-900' : 'text-gray-400'
+              activeTab === 'profile' && isOnTabs ? 'text-gray-900' : 'text-gray-400'
             }`}
           >
             <span className="text-xl">👤</span>

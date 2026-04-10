@@ -4,6 +4,7 @@ export interface Profile {
   bio: string | null
   language: string
   is_available: boolean
+  dm_permission: 'everyone' | 'mutual'
   created_at: string
 }
 
@@ -29,6 +30,15 @@ export interface Comment {
 export interface AppState {
   profile: Profile | null
   isLoggedIn: boolean
+}
+
+export interface Message {
+  id: string
+  conversation_id: string
+  sender_id: string
+  content: string
+  is_read: boolean
+  created_at: string
 }
 
 export interface Notification {
