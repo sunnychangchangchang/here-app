@@ -77,6 +77,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
 
   const performSearch = async (q: string, tab: 'posts' | 'tags' | 'users') => {
     if (!q.trim()) return
+    ;(document.activeElement as HTMLElement)?.blur()
     setSearching(true)
     if (tab === 'posts') {
       const { data } = await supabase
@@ -299,6 +300,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
       tags,
       image_urls
     })
+    ;(document.activeElement as HTMLElement)?.blur()
     setNewPost('')
     setWaitingForReply(false)
     setTags([])
@@ -330,6 +332,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
   const submitComment = async (postId: string) => {
     const content = newComment[postId]?.trim()
     if (!content || !profile) return
+    ;(document.activeElement as HTMLElement)?.blur()
 
     await supabase.from('comments').insert({ post_id: postId, user_id: profile.id, content })
     setNewComment(prev => ({ ...prev, [postId]: '' }))
