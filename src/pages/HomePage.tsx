@@ -3,7 +3,12 @@ import { supabase } from '../supabase'
 import { useApp } from '../context/AppContext'
 import type { Post, Comment } from '../types'
 
-export default function HomePage() {
+interface HomePageProps {
+  onTagClick?: (tag: string) => void
+  highlightPostId?: string | null
+}
+
+export default function HomePage({ onTagClick, highlightPostId }: HomePageProps) {
   const { profile } = useApp()
   const [posts, setPosts] = useState<Post[]>([])
   const [newPost, setNewPost] = useState('')
@@ -40,6 +45,15 @@ export default function HomePage() {
       supabase.removeChannel(commentChannel)
     }
   }, [])
+
+  useEffect(() => {
+    if (highlightPostId) {
+      setExpandedPost(highlightPostId)
+      setTimeout(() => {
+        document.getElementById(`post-${highlightPostId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 300)
+    }
+  }, [highlightPostId])
 
   const fetchPosts = async () => {
     const { data } = await supabase
@@ -110,21 +124,62 @@ export default function HomePage() {
     setLoading(false)
   }
 
+  const deletePost = async (postId: string) => {
+    if (!profile) return
+
+    const { error } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', postId)
+      .eq('user_id', profile.id)
+
+    if (error) return
+
+    setPosts(prev => prev.filter(post => post.id !== postId))
+    setComments(prev => {
+      const next = { ...prev }
+      delete next[postId]
+      return next
+    })
+    setCommentCounts(prev => {
+      const next = { ...prev }
+      delete next[postId]
+      return next
+    })
+    setNewComment(prev => {
+      const next = { ...prev }
+      delete next[postId]
+      return next
+    })
+    if (expandedPost === postId) {
+      setExpandedPost(null)
+    }
+  }
+
   const submitComment = async (postId: string) => {
     const content = newComment[postId]?.trim()
     if (!content || !profile) return
+
     await supabase.from('comments').insert({
       post_id: postId,
       user_id: profile.id,
       content
     })
+
+    // 找到文章作者，發送通知（不通知自己）
+    const post = posts.find(p => p.id === postId)
+    if (post && post.user_id !== profile.id) {
+      const preview = post.content.length > 20 ? post.content.slice(0, 20) + '...' : post.content
+      await supabase.from('notifications').insert({
+        user_id: post.user_id,
+        type: 'comment',
+        message: `${profile.username} 留言了你的文章「${preview}」`,
+        post_id: postId
+      })
+    }
+
     setNewComment(prev => ({ ...prev, [postId]: '' }))
   }
-
-  const deletePost = async (postId: string) => {
-  if (!confirm('確定要刪除這篇文章嗎？')) return
-  await supabase.from('posts').delete().eq('id', postId)
-}
 
   const formatTime = (dateStr: string) => {
     const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
@@ -199,7 +254,9 @@ export default function HomePage() {
           </div>
         )}
         {posts.map(post => (
-          <div key={post.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div key={post.id} id={`post-${post.id}`} className={`bg-white rounded-2xl border shadow-sm p-4 ${
+            highlightPostId === post.id ? 'border-blue-200' : 'border-gray-100'
+          }`}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium text-gray-600">
@@ -235,9 +292,13 @@ export default function HomePage() {
             {post.tags && post.tags.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-3">
                 {post.tags.map(tag => (
-                  <span key={tag} className="text-xs text-blue-500 hover:text-blue-700 cursor-pointer">
+                  <span
+                    key={tag}
+                    onClick={() => onTagClick?.(tag)}
+                    className="text-xs text-blue-500 hover:text-blue-700 cursor-pointer"
+                  >
                     #{tag}
-                  </span>
+                  </span> 
                 ))}
               </div>
             )}

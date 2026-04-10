@@ -1,15 +1,24 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import type { Post, Profile } from '../types'
 
 type SearchTab = 'posts' | 'tags' | 'users'
 
-export default function SearchPage() {
-  const [query, setQuery] = useState('')
-  const [activeTab, setActiveTab] = useState<SearchTab>('posts')
+interface SearchPageProps {
+  initialQuery?: string
+  initialType?: 'posts' | 'tags' | 'users'
+}
+
+export default function SearchPage({ initialQuery = '', initialType = 'posts' }: SearchPageProps) {
+  const [query, setQuery] = useState(initialQuery)
+  const [activeTab, setActiveTab] = useState<SearchTab>(initialType)
   const [posts, setPosts] = useState<Post[]>([])
   const [users, setUsers] = useState<Profile[]>([])
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (initialQuery) search()
+  }, [])
 
   const search = async () => {
     if (!query.trim()) return

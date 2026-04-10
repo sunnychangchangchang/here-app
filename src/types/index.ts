@@ -30,3 +30,13 @@ export interface AppState {
   profile: Profile | null
   isLoggedIn: boolean
 }
+
+export interface Notification {
+  id: string
+  user_id: string
+  type: string
+  message: string
+  post_id: string | null
+  is_read: boolean
+  created_at: string
+}
