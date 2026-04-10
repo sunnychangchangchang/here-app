@@ -20,6 +20,7 @@ export default function HomePage({ onTagClick, highlightPostId }: HomePageProps)
   const [comments, setComments] = useState<Record<string, Comment[]>>({})
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
   const [newComment, setNewComment] = useState<Record<string, string>>({})
+  const [scrollToLastCommentPostId, setScrollToLastCommentPostId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchPosts()
@@ -47,13 +48,26 @@ export default function HomePage({ onTagClick, highlightPostId }: HomePageProps)
   }, [])
 
   useEffect(() => {
-    if (highlightPostId) {
-      setExpandedPost(highlightPostId)
-      setTimeout(() => {
-        document.getElementById(`post-${highlightPostId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }, 300)
-    }
+    if (!highlightPostId) return
+    setExpandedPost(highlightPostId)
+    setScrollToLastCommentPostId(highlightPostId)
+    fetchComments(highlightPostId)
+    setTimeout(() => {
+      document.getElementById(`post-${highlightPostId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 300)
   }, [highlightPostId])
+
+  // 當留言載入完後，自動 scroll 到最後一則
+  useEffect(() => {
+    if (!scrollToLastCommentPostId) return
+    const postComments = comments[scrollToLastCommentPostId]
+    if (!postComments?.length) return
+    const lastComment = postComments[postComments.length - 1]
+    setTimeout(() => {
+      document.getElementById(`comment-${lastComment.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setScrollToLastCommentPostId(null)
+    }, 400)
+  }, [comments, scrollToLastCommentPostId])
 
   const fetchPosts = async () => {
     const { data } = await supabase
@@ -156,6 +170,17 @@ export default function HomePage({ onTagClick, highlightPostId }: HomePageProps)
     }
   }
 
+  const deleteComment = async (commentId: string, postId: string) => {
+    if (!profile) return
+    // Optimistic update
+    setComments(prev => ({
+      ...prev,
+      [postId]: (prev[postId] || []).filter(c => c.id !== commentId)
+    }))
+    setCommentCounts(prev => ({ ...prev, [postId]: Math.max((prev[postId] || 1) - 1, 0) }))
+    await supabase.from('comments').delete().eq('id', commentId).eq('user_id', profile.id)
+  }
+
   const submitComment = async (postId: string) => {
     const content = newComment[postId]?.trim()
     if (!content || !profile) return
@@ -166,19 +191,57 @@ export default function HomePage({ onTagClick, highlightPostId }: HomePageProps)
       content
     })
 
-    // 找到文章作者，發送通知（不通知自己）
+    setNewComment(prev => ({ ...prev, [postId]: '' }))
+
+    // 通知文章作者（不通知自己）
     const post = posts.find(p => p.id === postId)
-    if (post && post.user_id !== profile.id) {
-      const preview = post.content.length > 20 ? post.content.slice(0, 20) + '...' : post.content
+    if (!post || post.user_id === profile.id) return
+
+    // 取得這篇文章所有留言者（排除作者），組成聚合訊息
+    const { data: allComments } = await supabase
+      .from('comments')
+      .select('user_id, profiles(username)')
+      .eq('post_id', postId)
+      .neq('user_id', post.user_id)
+
+    const seen = new Set<string>()
+    const uniqueCommenters: string[] = []
+    for (const c of allComments || []) {
+      const username = (c.profiles as any)?.username
+      if (username && !seen.has(username)) {
+        seen.add(username)
+        uniqueCommenters.push(username)
+      }
+    }
+
+    const preview = post.content.length > 20 ? post.content.slice(0, 20) + '...' : post.content
+    let message = ''
+    if (uniqueCommenters.length <= 3) {
+      message = `${uniqueCommenters.join('、')} 留言了你的文章「${preview}」`
+    } else {
+      message = `${uniqueCommenters.slice(0, 3).join('、')} 和其他人留言了你的文章「${preview}」`
+    }
+
+    // 若已有未讀通知就更新，否則新增
+    const { data: existing } = await supabase
+      .from('notifications')
+      .select('id')
+      .eq('user_id', post.user_id)
+      .eq('post_id', postId)
+      .eq('type', 'comment')
+      .eq('is_read', false)
+      .maybeSingle()
+
+    if (existing) {
+      await supabase.from('notifications').update({ message }).eq('id', existing.id)
+    } else {
       await supabase.from('notifications').insert({
         user_id: post.user_id,
         type: 'comment',
-        message: `${profile.username} 留言了你的文章「${preview}」`,
+        message,
         post_id: postId
       })
     }
-
-    setNewComment(prev => ({ ...prev, [postId]: '' }))
   }
 
   const formatTime = (dateStr: string) => {
@@ -275,7 +338,6 @@ export default function HomePage({ onTagClick, highlightPostId }: HomePageProps)
                   <span className="text-xs text-gray-400">{formatTime(post.created_at)}</span>
                 </div>
               </div>
-              {/* 只有自己的文章才能刪除 */}
               {post.user_id === profile?.id && (
                 <button
                   onClick={() => deletePost(post.id)}
@@ -288,7 +350,6 @@ export default function HomePage({ onTagClick, highlightPostId }: HomePageProps)
 
             <p className="text-sm text-gray-800 leading-relaxed mb-2">{post.content}</p>
 
-            {/* 顯示 hashtag */}
             {post.tags && post.tags.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-3">
                 {post.tags.map(tag => (
@@ -298,7 +359,7 @@ export default function HomePage({ onTagClick, highlightPostId }: HomePageProps)
                     className="text-xs text-blue-500 hover:text-blue-700 cursor-pointer"
                   >
                     #{tag}
-                  </span> 
+                  </span>
                 ))}
               </div>
             )}
@@ -317,12 +378,22 @@ export default function HomePage({ onTagClick, highlightPostId }: HomePageProps)
                     <p className="text-xs text-gray-400">還沒有留言</p>
                   )}
                   {(comments[post.id] || []).map(comment => (
-                    <div key={comment.id} className="flex gap-2">
+                    <div key={comment.id} id={`comment-${comment.id}`} className="flex gap-2">
                       <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs font-medium text-gray-600 flex-shrink-0">
                         {comment.profiles?.username?.[0]?.toUpperCase()}
                       </div>
                       <div className="bg-gray-50 rounded-xl px-3 py-2 flex-1">
-                        <span className="text-xs font-medium text-gray-700">{comment.profiles?.username}</span>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-gray-700">{comment.profiles?.username}</span>
+                          {comment.user_id === profile?.id && (
+                            <button
+                              onClick={() => deleteComment(comment.id, post.id)}
+                              className="text-xs text-gray-300 hover:text-red-400 transition-colors"
+                            >
+                              刪除
+                            </button>
+                          )}
+                        </div>
                         <p className="text-xs text-gray-600 mt-0.5">{comment.content}</p>
                       </div>
                     </div>
