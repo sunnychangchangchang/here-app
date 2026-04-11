@@ -30,6 +30,7 @@ function AppContent() {
   const [homeTriggerSearch, setHomeTriggerSearch] = useState<{ query: string; type: 'posts' | 'tags' | 'users' } | null>(null)
   const [headerH, setHeaderH] = useState(54)
   const [tabbarH, setTabbarH] = useState(64)
+  const [navDir, setNavDir] = useState<'forward' | 'back'>('forward')
   const headerRef = useRef<HTMLDivElement>(null)
   const tabbarRef = useRef<HTMLDivElement>(null)
 
@@ -41,8 +42,14 @@ function AppContent() {
   const currentView = viewStack[viewStack.length - 1]
   const isOnTabs = currentView.type === 'tabs'
 
-  const navigate = (view: AppView) => setViewStack(prev => [...prev, view])
-  const goBack = () => setViewStack(prev => prev.length > 1 ? prev.slice(0, -1) : prev)
+  const navigate = (view: AppView) => {
+    setNavDir('forward')
+    setViewStack(prev => [...prev, view])
+  }
+  const goBack = () => {
+    setNavDir('back')
+    setViewStack(prev => prev.length > 1 ? prev.slice(0, -1) : prev)
+  }
 
   useEffect(() => {
     if (!profile) return
@@ -173,27 +180,33 @@ function AppContent() {
       {/* 頁面內容 */}
       <div className="pb-20" style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' }}>
         {currentView.type === 'userProfile' && (
-          <UserProfilePage
-            userId={currentView.userId}
-            onTagClick={(tag) => goToSearch(tag, 'tags')}
-            onUserClick={handleUserClick}
-            onStartChat={openChat}
-          />
+          <div key={currentView.userId} className={navDir === 'forward' ? 'anim-slide-right' : 'anim-slide-left'}>
+            <UserProfilePage
+              userId={currentView.userId}
+              onTagClick={(tag) => goToSearch(tag, 'tags')}
+              onUserClick={handleUserClick}
+              onStartChat={openChat}
+            />
+          </div>
         )}
         {currentView.type === 'conversationList' && (
-          <ConversationListPage onStartChat={openChat} onUserClick={handleUserClick} />
+          <div key="conv-list" className={navDir === 'forward' ? 'anim-slide-right' : 'anim-slide-left'}>
+            <ConversationListPage onStartChat={openChat} onUserClick={handleUserClick} />
+          </div>
         )}
         {currentView.type === 'chat' && (
-          <ChatPage
-            conversationId={currentView.conversationId}
-            otherUserId={currentView.otherUserId}
-            onUserClick={handleUserClick}
-            headerH={headerH}
-            tabbarH={tabbarH}
-          />
+          <div key={currentView.conversationId} className="anim-fade">
+            <ChatPage
+              conversationId={currentView.conversationId}
+              otherUserId={currentView.otherUserId}
+              onUserClick={handleUserClick}
+              headerH={headerH}
+              tabbarH={tabbarH}
+            />
+          </div>
         )}
         {isOnTabs && (
-          <>
+          <div key={activeTab} className="anim-fade-up">
             {activeTab === 'home' && (
               <HomePage
                 onTagClick={(tag) => goToSearch(tag, 'tags')}
@@ -214,7 +227,7 @@ function AppContent() {
               }} />
             )}
             {activeTab === 'profile' && <ProfilePage />}
-          </>
+          </div>
         )}
       </div>
 

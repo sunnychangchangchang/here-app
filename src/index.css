@@ -17,3 +17,34 @@ html, body {
 input, textarea, select {
   font-size: 16px !important;
 }
+
+/* ── 頁面切換動畫 ─────────────────────── */
+@keyframes pageSlideInRight {
+  from { opacity: 0.5; transform: translateX(48px); }
+  to   { opacity: 1;   transform: translateX(0); }
+}
+@keyframes pageSlideInLeft {
+  from { opacity: 0.5; transform: translateX(-24px); }
+  to   { opacity: 1;   transform: translateX(0); }
+}
+@keyframes pageFadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pageFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.anim-slide-right {
+  animation: pageSlideInRight 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+.anim-slide-left {
+  animation: pageSlideInLeft 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+.anim-fade-up {
+  animation: pageFadeUp 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+.anim-fade {
+  animation: pageFade 0.2s ease both;
+}
