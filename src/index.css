@@ -20,15 +20,15 @@ input, textarea, select {
 
 /* ── 頁面切換動畫 ─────────────────────── */
 @keyframes pageSlideInRight {
-  from { opacity: 0.5; transform: translateX(48px); }
-  to   { opacity: 1;   transform: translateX(0); }
+  from { opacity: 0;   transform: translateX(72px) scale(0.98); }
+  to   { opacity: 1;   transform: translateX(0)    scale(1); }
 }
 @keyframes pageSlideInLeft {
-  from { opacity: 0.5; transform: translateX(-24px); }
-  to   { opacity: 1;   transform: translateX(0); }
+  from { opacity: 0.4; transform: translateX(-40px) scale(0.99); }
+  to   { opacity: 1;   transform: translateX(0)     scale(1); }
 }
 @keyframes pageFadeUp {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes pageFade {
@@ -36,15 +36,50 @@ input, textarea, select {
   to   { opacity: 1; }
 }
 
+/* spring-like cubic-bezier */
 .anim-slide-right {
-  animation: pageSlideInRight 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  animation: pageSlideInRight 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .anim-slide-left {
-  animation: pageSlideInLeft 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  animation: pageSlideInLeft 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .anim-fade-up {
-  animation: pageFadeUp 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  animation: pageFadeUp 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .anim-fade {
-  animation: pageFade 0.2s ease both;
+  animation: pageFade 0.18s ease both;
+}
+
+/* ── 觸控回饋 ─────────────────────── */
+.pressable {
+  transition: transform 0.12s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity  0.12s ease;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.pressable:active {
+  transform: scale(0.96);
+  opacity: 0.75;
+}
+
+.pressable-card {
+  transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.15s ease;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.pressable-card:active {
+  transform: scale(0.985);
+}
+
+/* ── 骨架載入 ─────────────────────── */
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position:  200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #f3f4f6 25%, #e9eaec 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: 8px;
 }

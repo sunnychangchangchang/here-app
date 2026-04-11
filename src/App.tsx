@@ -124,8 +124,12 @@ function AppContent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-400 text-sm">載入中...</p>
+      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-2xl bg-gray-900 flex items-center justify-center">
+            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          </div>
+        </div>
       </div>
     )
   }
@@ -133,7 +137,7 @@ function AppContent() {
   if (!isLoggedIn) return <AuthPage />
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#f5f5f7]">
       {/* 頂部標題 */}
       <div ref={headerRef} className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 py-3 relative flex items-center justify-center min-h-[48px]">
@@ -232,8 +236,8 @@ function AppContent() {
       </div>
 
       {/* 底部導航 */}
-      <div ref={tabbarRef} className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-gray-100" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="max-w-lg mx-auto px-2 py-2 flex justify-around">
+      <div ref={tabbarRef} className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100/80" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="max-w-lg mx-auto px-2 pt-1 pb-1 flex justify-around">
           {([
             { tab: 'home' as Tab, icon: <HomeIcon className="w-6 h-6" />, label: '首頁' },
             { tab: 'plaza' as Tab, icon: <PlazaIcon className="w-6 h-6" />, label: '廣場' },
@@ -246,14 +250,20 @@ function AppContent() {
               <button
                 key={tab}
                 onClick={() => handleTabChange(tab)}
-                className="relative flex flex-col items-center gap-1 px-4 py-1.5 min-w-[56px] active:scale-95 transition-transform"
+                className="pressable relative flex flex-col items-center gap-0.5 px-4 py-2 min-w-[56px]"
               >
-                <div className={`p-1.5 rounded-xl transition-all duration-200 ${active ? 'bg-gray-100' : ''}`}>
-                  <span className={active ? 'text-gray-900' : 'text-gray-400'}>{icon}</span>
-                </div>
-                <span className={`text-xs font-medium transition-colors ${active ? 'text-gray-900' : 'text-gray-400'}`}>{label}</span>
+                {/* 指示條 */}
+                <div className={`absolute top-0 left-1/2 -translate-x-1/2 h-0.5 rounded-full transition-all duration-300 ${
+                  active ? 'w-5 bg-gray-900' : 'w-0 bg-transparent'
+                }`} />
+                <span className={`transition-all duration-200 ${active ? 'text-gray-900 scale-110' : 'text-gray-400 scale-100'}`}>
+                  {icon}
+                </span>
+                <span className={`text-[10px] font-medium tracking-wide transition-colors duration-200 ${active ? 'text-gray-900' : 'text-gray-400'}`}>
+                  {label}
+                </span>
                 {badge != null && badge > 0 && (
-                  <span className="absolute top-1 right-2.5 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-medium">
+                  <span className="absolute top-1.5 right-2 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-semibold shadow-sm">
                     {badge > 9 ? '9+' : badge}
                   </span>
                 )}

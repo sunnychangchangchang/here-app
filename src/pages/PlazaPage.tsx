@@ -113,7 +113,7 @@ export default function PlazaPage({ onUserClick }: PlazaPageProps) {
               key={user.id}
               onClick={() => user.id !== profile?.id && onUserClick?.(user.id)}
               className={`bg-white rounded-2xl border shadow-sm p-4 ${
-                user.id === profile?.id ? 'border-green-200' : 'border-gray-100 cursor-pointer hover:bg-gray-50'
+                user.id === profile?.id ? 'border-green-200' : 'border-gray-100 cursor-pointer pressable-card'
               }`}
             >
               <div className="flex items-center gap-3">

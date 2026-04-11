@@ -104,7 +104,7 @@ export default function ConversationListPage({ onStartChat }: ConversationListPa
           <div
             key={conv.id}
             onClick={() => onStartChat(conv.id, conv.otherUser.id, conv.otherUser.username)}
-            className="flex items-center gap-3 px-4 py-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100 transition-colors"
+            className="pressable-card flex items-center gap-3 px-4 py-4 cursor-pointer border-b border-gray-100/70"
           >
             <div className="relative flex-shrink-0">
               <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-base font-medium text-gray-600">

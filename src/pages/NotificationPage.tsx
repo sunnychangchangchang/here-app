@@ -108,7 +108,7 @@ export default function NotificationPage({ onPostClick }: NotificationPageProps)
             }}
             className={`bg-white rounded-2xl border shadow-sm p-4 transition-all ${
               !notification.is_read ? 'border-blue-100' : 'border-gray-100'
-            } ${notification.post_id ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+            } ${notification.post_id ? 'cursor-pointer pressable-card' : ''}`}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-start gap-3">

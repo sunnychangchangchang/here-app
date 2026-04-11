@@ -450,7 +450,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
         <div className="space-y-3 mb-6">
           {searching && <p className="text-center text-gray-400 text-sm py-4">搜尋中...</p>}
           {(searchTab === 'posts' || searchTab === 'tags') && searchPosts.map(post => (
-            <div key={post.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div key={post.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-gray-100/60 p-4">
               <div className="flex items-center gap-2 mb-2">
                 <div
                   className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-xs font-medium text-gray-600 cursor-pointer hover:bg-gray-200"
@@ -480,7 +480,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
             <div
               key={user.id}
               onClick={() => onUserClick?.(user.id)}
-              className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3 cursor-pointer hover:bg-gray-50"
+              className="pressable-card bg-white rounded-2xl border border-gray-100 shadow-sm shadow-gray-100/60 p-4 flex items-center gap-3 cursor-pointer"
             >
               <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-base font-medium text-gray-600">
                 {user.username[0].toUpperCase()}
@@ -501,7 +501,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
       )}
 
       {/* 發文框 */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-gray-100/60 p-4 mb-6">
         <textarea
           value={newPost}
           onChange={e => setNewPost(e.target.value)}
@@ -602,8 +602,8 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
           <div className="text-center text-gray-400 text-sm py-12">還沒有人發文，來第一個吧</div>
         )}
         {posts.map(post => (
-          <div key={post.id} id={`post-${post.id}`} className={`bg-white rounded-2xl border shadow-sm p-4 ${
-            highlightPostId === post.id ? 'border-blue-200' : 'border-gray-100'
+          <div key={post.id} id={`post-${post.id}`} className={`bg-white rounded-2xl border shadow-sm shadow-gray-100/60 p-4 transition-all duration-200 ${
+            highlightPostId === post.id ? 'border-blue-200 shadow-blue-100/40' : 'border-gray-100'
           }`}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
