@@ -69,7 +69,15 @@ input, textarea, select {
 }
 .anim-fade {
   will-change: opacity;
-  animation: pageFade 0.32s ease both;
+  animation: pageFade 0.15s ease both;
+}
+.anim-slide-right-fast {
+  will-change: transform, opacity;
+  animation: pageSlideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.anim-slide-left-fast {
+  will-change: transform, opacity;
+  animation: pageSlideInLeft 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* ── 觸控回饋 ─────────────────────── */

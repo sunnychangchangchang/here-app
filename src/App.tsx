@@ -199,7 +199,7 @@ function AppContent() {
           </div>
         )}
         {currentView.type === 'chat' && (
-          <div key={currentView.conversationId} className="anim-fade">
+          <div key={currentView.conversationId} className={navDir === 'forward' ? 'anim-slide-right-fast' : 'anim-slide-left-fast'}>
             <ChatPage
               conversationId={currentView.conversationId}
               otherUserId={currentView.otherUserId}
