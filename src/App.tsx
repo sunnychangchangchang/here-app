@@ -209,30 +209,36 @@ function AppContent() {
             />
           </div>
         )}
-        {isOnTabs && (
-          <div key={activeTab} className="anim-fade-up">
-            {activeTab === 'home' && (
-              <HomePage
-                onTagClick={(tag) => goToSearch(tag, 'tags')}
-                onUserClick={handleUserClick}
-                highlightPostId={highlightPostId}
-                triggerSearch={homeTriggerSearch}
-              />
-            )}
-            {activeTab === 'plaza' && <PlazaPage onUserClick={handleUserClick} />}
-            {activeTab === 'messages' && (
-              <MessagesPage onStartChat={openChat} onUserClick={handleUserClick} />
-            )}
-            {activeTab === 'notifications' && (
-              <NotificationPage onPostClick={(postId) => {
-                setHighlightPostId(postId)
-                setViewStack([{ type: 'tabs' }])
-                setActiveTab('home')
-              }} />
-            )}
-            {activeTab === 'profile' && <ProfilePage />}
-          </div>
-        )}
+        {/* Tab 頁面保持 mounted，切換用 opacity transition，避免重複 fetch */}
+        <div className={`relative ${isOnTabs ? '' : 'hidden'}`}>
+          {(['home', 'plaza', 'messages', 'notifications', 'profile'] as Tab[]).map(tab => (
+            <div
+              key={tab}
+              className={`tab-panel ${activeTab === tab ? 'tab-panel-visible' : 'tab-panel-hidden'}`}
+            >
+              {tab === 'home' && (
+                <HomePage
+                  onTagClick={(tag) => goToSearch(tag, 'tags')}
+                  onUserClick={handleUserClick}
+                  highlightPostId={highlightPostId}
+                  triggerSearch={homeTriggerSearch}
+                />
+              )}
+              {tab === 'plaza' && <PlazaPage onUserClick={handleUserClick} />}
+              {tab === 'messages' && (
+                <MessagesPage onStartChat={openChat} onUserClick={handleUserClick} />
+              )}
+              {tab === 'notifications' && (
+                <NotificationPage onPostClick={(postId) => {
+                  setHighlightPostId(postId)
+                  setViewStack([{ type: 'tabs' }])
+                  setActiveTab('home')
+                }} />
+              )}
+              {tab === 'profile' && <ProfilePage />}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* 底部導航 */}
