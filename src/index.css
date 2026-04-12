@@ -20,34 +20,37 @@ input, textarea, select {
 
 /* ── 頁面切換動畫 ─────────────────────── */
 @keyframes pageSlideInRight {
-  from { opacity: 0;   transform: translateX(72px) scale(0.98); }
-  to   { opacity: 1;   transform: translateX(0)    scale(1); }
+  from { opacity: 0.2; transform: translate3d(56px, 0, 0); }
+  to   { opacity: 1;   transform: translate3d(0, 0, 0); }
 }
 @keyframes pageSlideInLeft {
-  from { opacity: 0.4; transform: translateX(-40px) scale(0.99); }
-  to   { opacity: 1;   transform: translateX(0)     scale(1); }
+  from { opacity: 0.4; transform: translate3d(-32px, 0, 0); }
+  to   { opacity: 1;   transform: translate3d(0, 0, 0); }
 }
 @keyframes pageFadeUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translate3d(0, 12px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 @keyframes pageFade {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
 
-/* spring-like cubic-bezier */
 .anim-slide-right {
-  animation: pageSlideInRight 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
+  animation: pageSlideInRight 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .anim-slide-left {
-  animation: pageSlideInLeft 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
+  animation: pageSlideInLeft 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .anim-fade-up {
-  animation: pageFadeUp 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
+  animation: pageFadeUp 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .anim-fade {
-  animation: pageFade 0.18s ease both;
+  will-change: opacity;
+  animation: pageFade 0.24s ease both;
 }
 
 /* ── 觸控回饋 ─────────────────────── */
