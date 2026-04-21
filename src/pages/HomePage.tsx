@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { useApp } from '../context/AppContext'
 import type { Post, Comment, Profile } from '../types'
-import { CommentIcon, HeartIcon, PostIcon, StatusIcon, TagIcon, UserIcon } from '../components/icons'
+import { CommentIcon, HeartIcon, PostIcon, TagIcon, UserIcon } from '../components/icons'
 import { uploadImage } from '../utils/imageUtils'
 
 interface HomePageProps {
@@ -16,7 +16,6 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
   const { profile } = useApp()
   const [posts, setPosts] = useState<Post[]>([])
   const [newPost, setNewPost] = useState('')
-  const [waitingForReply, setWaitingForReply] = useState(false)
   const [expireHours, setExpireHours] = useState<1 | 8 | 12>(8)
   const [loading, setLoading] = useState(false)
   const [tagInput, setTagInput] = useState('')
@@ -314,14 +313,13 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
     await supabase.from('posts').insert({
       user_id: profile.id,
       content: newPost.trim(),
-      waiting_for_reply: waitingForReply,
+      waiting_for_reply: false,
       tags,
       image_urls,
       expires_at,
     })
     ;(document.activeElement as HTMLElement)?.blur()
     setNewPost('')
-    setWaitingForReply(false)
     setExpireHours(8)
     setTags([])
     setTagInput('')
@@ -567,15 +565,6 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
         </div>
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setWaitingForReply(!waitingForReply)}
-              className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-full transition-all ${
-                waitingForReply ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-              }`}
-            >
-              <StatusIcon active={waitingForReply} className="w-3.5 h-3.5" />
-              在線等回覆
-            </button>
             {selectedImages.length === 0 && (
               <button
                 onClick={() => imageInputRef.current?.click()}
