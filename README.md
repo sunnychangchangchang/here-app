@@ -1,5 +1,7 @@
 # Here
 
+**Live:** https://here-app-xi.vercel.app — invite code `E6CB57A8`
+
 A private, invite-only community app for real conversations. Built around the idea that meaningful dialogue starts with a topic — not a cold DM.
 
 ---
@@ -279,8 +281,3 @@ User A blocks   →  all future requests from User B are blocked
 
 Each profile has a unique 8-character invite code (e.g. `K7RNPX3M`). Signup requires a valid code from an existing member. The `invited_by` field on each profile tracks the invite chain, and members can see how many people they've invited from their profile page.
 
----
-
-## License
-
-MIT
