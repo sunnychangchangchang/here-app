@@ -5,6 +5,8 @@ export interface Profile {
   language: string
   is_available: boolean
   dm_permission: 'everyone' | 'mutual'
+  invite_code: string
+  invited_by: string | null
   created_at: string
 }
 

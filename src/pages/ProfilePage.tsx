@@ -22,6 +22,8 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [followerCount, setFollowerCount] = useState(0)
   const [followingCount, setFollowingCount] = useState(0)
+  const [inviteCount, setInviteCount] = useState(0)
+  const [codeCopied, setCodeCopied] = useState(false)
   const [feedback, setFeedback] = useState('')
   const [feedbackSent, setFeedbackSent] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
@@ -31,9 +33,11 @@ export default function ProfilePage() {
     Promise.all([
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profile.id),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profile.id),
-    ]).then(([followers, following]) => {
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('invited_by', profile.id),
+    ]).then(([followers, following, invited]) => {
       setFollowerCount(followers.count || 0)
       setFollowingCount(following.count || 0)
+      setInviteCount(invited.count || 0)
     })
   }, [profile])
 
@@ -121,6 +125,10 @@ export default function ProfilePage() {
             <p className="text-base font-bold text-gray-900">{followingCount}</p>
             <p className="text-xs text-gray-400">追蹤中</p>
           </div>
+          <div className="text-center">
+            <p className="text-base font-bold text-gray-900">{inviteCount}</p>
+            <p className="text-xs text-gray-400">已邀請</p>
+          </div>
         </div>
       </div>
 
@@ -142,6 +150,26 @@ export default function ProfilePage() {
               {profile?.bio || <span className="text-gray-300">尚未填寫</span>}
             </p>
           )}
+        </div>
+
+        {/* 邀請碼 */}
+        <div className="px-5 py-4 flex items-center justify-between">
+          <p className="text-xs text-gray-400">我的邀請碼</p>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(profile?.invite_code || '')
+              setCodeCopied(true)
+              setTimeout(() => setCodeCopied(false), 2000)
+            }}
+            className="flex items-center gap-2 active:opacity-60 transition-opacity"
+          >
+            <span className="font-mono text-sm font-semibold text-gray-900 tracking-widest">
+              {profile?.invite_code}
+            </span>
+            <span className="text-xs text-gray-400">
+              {codeCopied ? '已複製！' : '複製'}
+            </span>
+          </button>
         </div>
 
         {/* 主要語言 */}
