@@ -17,6 +17,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
   const [posts, setPosts] = useState<Post[]>([])
   const [newPost, setNewPost] = useState('')
   const [expireHours, setExpireHours] = useState<1 | 8 | 12>(8)
+  const [feedFilter, setFeedFilter] = useState<'all' | 'following'>('all')
   const [loading, setLoading] = useState(false)
   const [tagInput, setTagInput] = useState('')
   const [tags, setTags] = useState<string[]>([])
@@ -43,11 +44,13 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
   const [userLikedComments, setUserLikedComments] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    fetchPosts()
+    fetchPosts(feedFilter)
+  }, [feedFilter])
 
+  useEffect(() => {
     const postChannel = supabase
       .channel('posts-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => fetchPosts())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => fetchPosts(feedFilter))
       .subscribe()
 
     const commentChannel = supabase
@@ -137,13 +140,31 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
     }, 400)
   }, [comments, scrollToLastCommentPostId])
 
-  const fetchPosts = async () => {
-    const { data } = await supabase
+  const fetchPosts = async (filter: 'all' | 'following' = 'all') => {
+    let userIds: string[] | null = null
+
+    if (filter === 'following' && profile) {
+      const { data: follows } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', profile.id)
+      userIds = (follows || []).map(f => f.following_id)
+      if (userIds.length === 0) {
+        setPosts([])
+        return
+      }
+    }
+
+    let query = supabase
       .from('posts')
       .select('*, profiles(username, language, is_available)')
       .gt('expires_at', new Date().toISOString())
       .order('created_at', { ascending: false })
       .limit(50)
+
+    if (userIds) query = query.in('user_id', userIds)
+
+    const { data } = await query
     if (data) {
       setPosts(data)
       fetchAllCommentCounts(data.map(p => p.id))
@@ -405,6 +426,21 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
 
   return (
     <div className="max-w-lg mx-auto px-4 py-6">
+      {/* 追蹤 / 所有人 切換 */}
+      <div className="flex bg-gray-100 rounded-xl p-1 mb-4">
+        {(['all', 'following'] as const).map(f => (
+          <button
+            key={f}
+            onClick={() => setFeedFilter(f)}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              feedFilter === f ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'
+            }`}
+          >
+            {f === 'all' ? '所有人' : '追蹤的人'}
+          </button>
+        ))}
+      </div>
+
       {/* 搜尋列 */}
       {!showSearch ? (
         <button
