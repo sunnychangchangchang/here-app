@@ -1,26 +1,26 @@
 # Here
 
-**Live:** https://here-app-xi.vercel.app — invite code `E6CB57A8`
+**Live:** https://here-app-xi.vercel.app — beta invite code `E6CB57A8`
 
-A private, invite-only community app for real conversations. Built around the idea that meaningful dialogue starts with a topic — not a cold DM.
+A topic-first social app that turns expiring posts into intentional private conversations. Built around the idea that meaningful dialogue starts with something worth talking about — not a cold DM.
 
 ---
 
 ## Purpose
 
-Most social apps optimise for reach. Here optimises for connection.
+Most social apps optimise for reach. Here optimises for intentional connection.
 
 The core loop is simple: post a topic that expires in 1, 8, or 12 hours → someone replies with a message → you accept or ignore the conversation request → a private chat opens. Every conversation starts with intent, and every topic self-destructs when its moment passes.
 
-Access is invite-only. Each member gets an invite code to share, and the chain of who invited whom is tracked — keeping the community small and accountable.
+Here is currently invite-only during beta so the early community can stay small, feedback can stay focused, and the product can be tested with a controlled group before public registration opens.
 
 ---
 
 ## Intended Audience
 
-- Small, trust-based communities (friend groups, study circles, hobbyist collectives)
 - People who find cold DMs uncomfortable but want low-stakes ways to start talking
-- Communities that prefer impermanence — posts disappear, conversations don't linger publicly
+- Small communities, campuses, and interest groups that want conversations to start from topics rather than profiles
+- Users who prefer impermanence — public topics disappear, while accepted private conversations can continue
 
 ---
 
@@ -28,7 +28,7 @@ Access is invite-only. Each member gets an invite code to share, and the chain o
 
 | Feature | Description |
 |---|---|
-| **Invite-only signup** | New accounts require a valid invite code from an existing member |
+| **Beta invite-controlled signup** | New accounts currently require a valid invite code while the app is in controlled beta |
 | **Expiring posts** | Topics last 1 / 8 / 12 hours, then vanish from the feed |
 | **Conversation requests** | Reply to someone's topic → they receive a request → accept/ignore/block |
 | **Private chat** | Real-time 1-on-1 messaging once a request is accepted |
@@ -277,7 +277,6 @@ User A blocks   →  all future requests from User B are blocked
 
 ---
 
-## Invite System
+## Beta Invite System
 
-Each profile has a unique 8-character invite code (e.g. `K7RNPX3M`). Signup requires a valid code from an existing member. The `invited_by` field on each profile tracks the invite chain, and members can see how many people they've invited from their profile page.
-
+During beta, each profile has a unique 8-character invite code (e.g. `K7RNPX3M`). Signup currently requires a valid code from an existing member so early access can be rolled out gradually. The `invited_by` field tracks the invite chain, and members can see how many people they've invited from their profile page.
