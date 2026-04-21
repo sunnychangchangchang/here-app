@@ -171,7 +171,12 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
-    const toAdd = files.slice(0, 3 - selectedImages.length)
+    const remaining = 3 - selectedImages.length
+    if (files.length > remaining) {
+      setPostError(`最多 3 張，超出的已略過`)
+      setTimeout(() => setPostError(null), 2500)
+    }
+    const toAdd = files.slice(0, remaining)
     setSelectedImages(prev => [...prev, ...toAdd])
     toAdd.forEach(file => {
       const reader = new FileReader()
