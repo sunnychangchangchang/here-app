@@ -163,7 +163,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
   const handleTagInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
-      const tag = tagInput.trim().replace(/^#/, '').toLowerCase().replace(/[^a-z0-9]/g, '')
+      const tag = tagInput.trim().replace(/^#/, '').toLowerCase().replace(/[^\p{L}\p{N}_]/gu, '')
       if (tag && !tags.includes(tag) && tags.length < 5) setTags(prev => [...prev, tag])
       setTagInput('')
     }
@@ -529,7 +529,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
               <input
                 type="text"
                 value={tagInput}
-                onChange={e => setTagInput(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+                onChange={e => setTagInput(e.target.value.toLowerCase().replace(/[^\p{L}\p{N}_]/gu, ''))}
                 onKeyDown={handleTagInput}
                 placeholder={tags.length === 0 ? '加標籤，Enter 確認' : '繼續加...'}
                 className="text-xs text-gray-600 placeholder-gray-300 focus:outline-none ml-0.5 w-32"
