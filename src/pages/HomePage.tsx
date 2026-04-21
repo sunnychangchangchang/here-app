@@ -570,7 +570,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
         {postError && (
           <p className="mt-2 text-xs text-red-400 text-center">{postError}</p>
         )}
-        <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageSelect} />
+        <input ref={imageInputRef} type="file" accept="image/*" multiple={selectedImages.length < 2} className="hidden" onChange={handleImageSelect} />
       </div>
 
       {/* 文章列表 */}

@@ -128,7 +128,7 @@ export default function PlazaPage({ onUserClick }: PlazaPageProps) {
         <div onClick={toggleAvailability} className="flex items-center justify-between cursor-pointer">
           <div>
             <p className="text-sm font-medium text-gray-900">
-              {isAvailable ? '我現在有空 🟢' : '我在忙'}
+              {isAvailable ? '我現在有空' : '我在忙'}
             </p>
             <p className="text-xs text-gray-400 mt-0.5">
               {isAvailable ? '其他人可以看到你在線' : '開啟讓別人知道你有空'}
