@@ -18,10 +18,9 @@ interface UserProfilePageProps {
   userId: string
   onTagClick?: (tag: string) => void
   onUserClick?: (userId: string) => void
-  onStartChat?: (conversationId: string, otherUserId: string, otherUsername: string) => void
 }
 
-export default function UserProfilePage({ userId, onTagClick, onUserClick, onStartChat }: UserProfilePageProps) {
+export default function UserProfilePage({ userId, onTagClick, onUserClick }: UserProfilePageProps) {
   const { profile } = useApp()
   const [userProfile, setUserProfile] = useState<Profile | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
@@ -80,28 +79,6 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick, onSta
       })
     }
   }
-
-  const openDmConversation = async () => {
-    if (!profile || !userProfile) return
-    const { data: existing } = await supabase
-      .from('conversations').select('id')
-      .or(`and(user1_id.eq.${profile.id},user2_id.eq.${userId}),and(user1_id.eq.${userId},user2_id.eq.${profile.id})`)
-      .maybeSingle()
-
-    let conversationId: string
-    if (existing) {
-      conversationId = existing.id
-    } else {
-      const { data: newConv } = await supabase
-        .from('conversations').insert({ user1_id: profile.id, user2_id: userId }).select().single()
-      if (!newConv) return
-      conversationId = newConv.id
-    }
-    onStartChat?.(conversationId, userId, userProfile.username)
-  }
-
-  const canSendDm = userProfile?.dm_permission === 'everyone' ||
-    (userProfile?.dm_permission === 'mutual' && isFollowing && theyFollowMe)
 
   const fetchPosts = async () => {
     const { data } = await supabase
@@ -258,14 +235,6 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick, onSta
             >
               {isFollowing ? '已追蹤' : '追蹤'}
             </button>
-            {canSendDm && onStartChat && (
-              <button
-                onClick={openDmConversation}
-                className="flex-1 py-2 rounded-xl text-sm font-medium bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                傳訊息
-              </button>
-            )}
           </div>
         </div>
       )}

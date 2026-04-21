@@ -189,7 +189,6 @@ function AppContent() {
               userId={currentView.userId}
               onTagClick={(tag) => goToSearch(tag, 'tags')}
               onUserClick={handleUserClick}
-              onStartChat={openChat}
             />
           </div>
         )}
