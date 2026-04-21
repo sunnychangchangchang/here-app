@@ -40,6 +40,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
   const [showReplyFor, setShowReplyFor] = useState<string | null>(null)
   const [sentRequests, setSentRequests] = useState<Set<string>>(new Set())
   const [sendingRequest, setSendingRequest] = useState(false)
+  const [postError, setPostError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchPosts(feedFilter)
@@ -162,7 +163,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
   const handleTagInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
-      const tag = tagInput.trim().replace(/^#/, '')
+      const tag = tagInput.trim().replace(/^#/, '').toLowerCase().replace(/[^a-z0-9]/g, '')
       if (tag && !tags.includes(tag) && tags.length < 5) setTags(prev => [...prev, tag])
       setTagInput('')
     }
@@ -182,6 +183,16 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
 
   const submitPost = async () => {
     if ((!newPost.trim() && selectedImages.length === 0) || !profile) return
+    setPostError(null)
+    // 12小時內最多3篇
+    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
+    const { count } = await supabase
+      .from('posts').select('*', { count: 'exact', head: true })
+      .eq('user_id', profile.id).gte('created_at', twelveHoursAgo)
+    if ((count || 0) >= 3) {
+      setPostError('12 小時內最多發 3 篇，等等再來')
+      return
+    }
     setLoading(true)
     setUploadingImages(selectedImages.length > 0)
     let image_urls: string[] = []
@@ -505,18 +516,25 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
             )}
           </div>
         )}
-        <div className="mt-2">
-          <div className="flex flex-wrap gap-1 mb-1">
-            {tags.map(tag => (
-              <span key={tag} className="flex items-center gap-1 text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
-                #{tag}<button onClick={() => setTags(p => p.filter(t => t !== tag))} className="text-blue-400 hover:text-blue-600">×</button>
-              </span>
-            ))}
-          </div>
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 min-h-[28px]">
+          {tags.map(tag => (
+            <span key={tag} className="flex items-center gap-0.5 text-xs bg-blue-50 text-blue-500 px-2.5 py-1 rounded-full">
+              #{tag}
+              <button onClick={() => setTags(p => p.filter(t => t !== tag))} className="ml-0.5 text-blue-300 hover:text-blue-500 leading-none">×</button>
+            </span>
+          ))}
           {tags.length < 5 && (
-            <input type="text" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleTagInput}
-              placeholder="加標籤，按 Enter 確認（最多5個）"
-              className="w-full text-xs text-gray-500 placeholder-gray-300 focus:outline-none" />
+            <div className="flex items-center text-gray-400">
+              <span className="text-xs select-none">#</span>
+              <input
+                type="text"
+                value={tagInput}
+                onChange={e => setTagInput(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+                onKeyDown={handleTagInput}
+                placeholder={tags.length === 0 ? '加標籤，Enter 確認' : '繼續加...'}
+                className="text-xs text-gray-600 placeholder-gray-300 focus:outline-none ml-0.5 w-32"
+              />
+            </div>
           )}
         </div>
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
@@ -532,13 +550,16 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
             )}
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex gap-1">
-              {([1, 8, 12] as const).map(h => (
-                <button key={h} onClick={() => setExpireHours(h)}
-                  className={`text-xs px-2 py-1 rounded-full transition-all ${expireHours === h ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-400'}`}>
-                  {h}h
-                </button>
-              ))}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-300">消失</span>
+              <div className="flex gap-1">
+                {([1, 8, 12] as const).map(h => (
+                  <button key={h} onClick={() => setExpireHours(h)}
+                    className={`text-xs px-2.5 py-1 rounded-full transition-all ${expireHours === h ? 'bg-orange-100 text-orange-500 font-medium' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}>
+                    {h}h
+                  </button>
+                ))}
+              </div>
             </div>
             <button onClick={submitPost} disabled={loading || uploadingImages || (!newPost.trim() && selectedImages.length === 0)}
               className="bg-gray-900 text-white text-xs px-4 py-1.5 rounded-full disabled:opacity-40 hover:bg-gray-700 transition-colors">
@@ -546,6 +567,9 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
             </button>
           </div>
         </div>
+        {postError && (
+          <p className="mt-2 text-xs text-red-400 text-center">{postError}</p>
+        )}
         <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageSelect} />
       </div>
 
