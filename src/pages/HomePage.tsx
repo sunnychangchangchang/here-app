@@ -17,6 +17,7 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
   const [posts, setPosts] = useState<Post[]>([])
   const [newPost, setNewPost] = useState('')
   const [waitingForReply, setWaitingForReply] = useState(false)
+  const [expireHours, setExpireHours] = useState<1 | 8 | 12>(8)
   const [loading, setLoading] = useState(false)
   const [tagInput, setTagInput] = useState('')
   const [tags, setTags] = useState<string[]>([])
@@ -138,11 +139,10 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
   }, [comments, scrollToLastCommentPostId])
 
   const fetchPosts = async () => {
-    const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
     const { data } = await supabase
       .from('posts')
       .select('*, profiles(username, language, is_available)')
-      .gte('created_at', since)
+      .gt('expires_at', new Date().toISOString())
       .order('created_at', { ascending: false })
       .limit(50)
     if (data) {
@@ -310,16 +310,19 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
       )
     }
 
+    const expires_at = new Date(Date.now() + expireHours * 60 * 60 * 1000).toISOString()
     await supabase.from('posts').insert({
       user_id: profile.id,
       content: newPost.trim(),
       waiting_for_reply: waitingForReply,
       tags,
-      image_urls
+      image_urls,
+      expires_at,
     })
     ;(document.activeElement as HTMLElement)?.blur()
     setNewPost('')
     setWaitingForReply(false)
+    setExpireHours(8)
     setTags([])
     setTagInput('')
     setSelectedImages([])
@@ -393,6 +396,13 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
     if (diff < 3600) return `${Math.floor(diff / 60)} 分鐘前`
     if (diff < 86400) return `${Math.floor(diff / 3600)} 小時前`
     return `${Math.floor(diff / 86400)} 天前`
+  }
+
+  const formatExpiry = (expiresAt: string) => {
+    const mins = Math.floor((new Date(expiresAt).getTime() - Date.now()) / 60000)
+    if (mins <= 0) return null
+    if (mins < 60) return `${mins} 分鐘後消失`
+    return `${Math.floor(mins / 60)} 小時後消失`
   }
 
   return (
@@ -578,13 +588,29 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
               </button>
             )}
           </div>
-          <button
-            onClick={submitPost}
-            disabled={loading || uploadingImages || (!newPost.trim() && selectedImages.length === 0)}
-            className="bg-gray-900 text-white text-xs px-4 py-1.5 rounded-full disabled:opacity-40 hover:bg-gray-700 transition-colors"
-          >
-            {uploadingImages ? '上傳中...' : '發布'}
-          </button>
+          <div className="flex items-center gap-2">
+            {/* 時間選擇 */}
+            <div className="flex gap-1">
+              {([1, 8, 12] as const).map(h => (
+                <button
+                  key={h}
+                  onClick={() => setExpireHours(h)}
+                  className={`text-xs px-2 py-1 rounded-full transition-all ${
+                    expireHours === h ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-400'
+                  }`}
+                >
+                  {h}h
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={submitPost}
+              disabled={loading || uploadingImages || (!newPost.trim() && selectedImages.length === 0)}
+              className="bg-gray-900 text-white text-xs px-4 py-1.5 rounded-full disabled:opacity-40 hover:bg-gray-700 transition-colors"
+            >
+              {uploadingImages ? '上傳中...' : '發布'}
+            </button>
+          </div>
         </div>
         <input
           ref={imageInputRef}
@@ -626,7 +652,12 @@ export default function HomePage({ onTagClick, onUserClick, highlightPostId, tri
                       <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">在線等</span>
                     )}
                   </div>
-                  <span className="text-xs text-gray-400">{formatTime(post.created_at)}</span>
+                  <span className="text-xs text-gray-400">
+                    {formatTime(post.created_at)}
+                    {post.expires_at && formatExpiry(post.expires_at) && (
+                      <span className="ml-1.5 text-orange-400">· {formatExpiry(post.expires_at)}</span>
+                    )}
+                  </span>
                 </div>
               </div>
               {post.user_id === profile?.id && (

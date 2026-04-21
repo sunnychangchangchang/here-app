@@ -18,6 +18,7 @@ export interface Post {
   tags: string[]
   image_urls: string[]
   created_at: string
+  expires_at: string
   profiles?: Profile
 }
 
