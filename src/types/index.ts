@@ -46,6 +46,18 @@ export interface Message {
   created_at: string
 }
 
+export interface ConversationRequest {
+  id: string
+  post_id: string
+  sender_id: string
+  receiver_id: string
+  message: string
+  status: 'pending' | 'accepted' | 'ignored' | 'blocked'
+  created_at: string
+  profiles?: Profile
+  posts?: { content: string; tags: string[] }
+}
+
 export interface Notification {
   id: string
   user_id: string

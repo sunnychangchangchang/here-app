@@ -229,11 +229,14 @@ function AppContent() {
                 <MessagesPage onStartChat={openChat} onUserClick={handleUserClick} />
               )}
               {tab === 'notifications' && (
-                <NotificationPage onPostClick={(postId) => {
-                  setHighlightPostId(postId)
-                  setViewStack([{ type: 'tabs' }])
-                  setActiveTab('home')
-                }} />
+                <NotificationPage
+                  onPostClick={(postId) => {
+                    setHighlightPostId(postId)
+                    setViewStack([{ type: 'tabs' }])
+                    setActiveTab('home')
+                  }}
+                  onStartChat={openChat}
+                />
               )}
               {tab === 'profile' && <ProfilePage />}
             </div>
