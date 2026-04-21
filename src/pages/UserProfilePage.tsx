@@ -29,7 +29,6 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick }: Use
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
   const [newComment, setNewComment] = useState<Record<string, string>>({})
   const [isFollowing, setIsFollowing] = useState(false)
-  const [theyFollowMe, setTheyFollowMe] = useState(false)
   const [followerCount, setFollowerCount] = useState(0)
   const [followingCount, setFollowingCount] = useState(0)
   const [postLikes, setPostLikes] = useState<Record<string, number>>({})
@@ -50,14 +49,13 @@ export default function UserProfilePage({ userId, onTagClick, onUserClick }: Use
 
   const fetchFollowData = async () => {
     if (!profile) return
-    const [iFollow, theyFollow, followers, following] = await Promise.all([
+    const [iFollow, , followers, following] = await Promise.all([
       supabase.from('follows').select('id').eq('follower_id', profile.id).eq('following_id', userId).maybeSingle(),
       supabase.from('follows').select('id').eq('follower_id', userId).eq('following_id', profile.id).maybeSingle(),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
     ])
     setIsFollowing(!!iFollow.data)
-    setTheyFollowMe(!!theyFollow.data)
     setFollowerCount(followers.count || 0)
     setFollowingCount(following.count || 0)
   }
